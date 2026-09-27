@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function verifiedUser() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isAdmin() {
+      return verifiedUser() && userEmail() == 'titanbusinesspros@gmail.com';
+    }
+
+    function isApproved() {
+      return verifiedUser() && (
+        isAdmin() ||
+        firestore.exists(/databases/(default)/documents/allowed_emails/$(userEmail()))
+      );
+    }
+
+    match /attachments/{taskId}/{fileName} {
+      allow read: if isApproved();
+      allow create: if isApproved()
+        && request.resource.size <= 20 * 1024 * 1024
+        && (
+          isAdmin() ||
+          firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.assignee == request.auth.uid
+        );
+      allow delete: if isApproved() && (
+        isAdmin() ||
+        firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid ||
+        firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.assignee == request.auth.uid
+      );
+      allow update: if false;
+    }
+  }
+}

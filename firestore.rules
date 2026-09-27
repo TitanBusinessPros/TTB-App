@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function verifiedUser() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isAdmin() {
+      return verifiedUser() && userEmail() == 'titanbusinesspros@gmail.com';
+    }
+
+    function isApproved() {
+      return verifiedUser() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/allowed_emails/$(userEmail()))
+      );
+    }
+
+    function taskPath(taskId) {
+      return /databases/$(database)/documents/tasks/$(taskId);
+    }
+
+    function isAssignee(taskId) {
+      return exists(taskPath(taskId))
+        && get(taskPath(taskId)).data.assignee == request.auth.uid;
+    }
+
+    function canUseNotes(taskId) {
+      return isApproved() && (isAdmin() || isAssignee(taskId));
+    }
+
+    function validSheetUrl(url) {
+      return url is string && url.size() <= 2000
+        && (url == '' || url.matches('https://docs[.]google[.]com/spreadsheets/d/.*'));
+    }
+
+    match /allowed_emails/{email} {
+      allow get: if isAdmin() || (verifiedUser() && userEmail() == email);
+      allow list, create, update, delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isApproved();
+      allow create: if isApproved()
+        && userId == request.auth.uid
+        && request.resource.data.email == userEmail()
+        && request.resource.data.name is string;
+      allow update: if isApproved() && (
+        isAdmin() ||
+        (userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isApproved();
+      allow create: if isApproved()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.assignee is string
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.assignee))
+        && validSheetUrl(request.resource.data.sheetUrl)
+        && !request.resource.data.keys().hasAny(['notes']);
+      allow update: if isApproved()
+        && !request.resource.data.keys().hasAny(['notes'])
+        && (
+          isAdmin() ||
+          (resource.data.assignee == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetUrl', 'lastUpdated'])
+            && validSheetUrl(request.resource.data.sheetUrl)) ||
+          (resource.data.assignee == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['column', 'lastUpdated'])
+            && request.resource.data.column in ['todo', 'progress', 'review', 'done']) ||
+          (resource.data.createdBy == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attachments']))
+        );
+      allow delete: if isAdmin();
+
+      // Notes are separate documents, so ordinary board readers never receive them.
+      match /notes/{noteId} {
+        allow get, list: if canUseNotes(taskId);
+        allow create: if canUseNotes(taskId)
+          && request.resource.data.keys().hasAll(['body', 'authorUid', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['body', 'authorUid', 'createdAt'])
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 5000
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow delete: if canUseNotes(taskId);
+        allow update: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
