@@ -1,13 +1,1672 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="0; url=public/">
-  <title>Team Task Board</title>
-  <script>location.replace(new URL('public/', location.href));</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Team Task Board | Real-Time</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        [hidden] { display: none !important; }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ---------- Login screen ---------- */
+        #login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 40px;
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .login-card h1 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            margin-bottom: 25px;
+            color: #2c3e50;
+        }
+
+        .login-card i.fa-tasks { color: #3498db; }
+
+        .login-card input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .login-card button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .login-btn-primary { background: #3498db; color: white; }
+        .login-btn-primary:hover { background: #2980b9; }
+        .login-btn-secondary { background: #ecf0f1; color: #2c3e50; }
+        .login-btn-secondary:hover { background: #dfe6e9; }
+
+        #login-error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-bottom: 10px;
+            min-height: 18px;
+        }
+
+        #login-error.success { color: #27ae60; }
+
+        #forgot-password-link:hover { text-decoration: underline; }
+
+        #app-screen { display: none; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo i {
+            font-size: 32px;
+            color: #3498db;
+        }
+
+        .logo h1 {
+            font-weight: 700;
+            font-size: 28px;
+        }
+
+        .user-badge {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .btn-secondary:hover {
+            background: #dfe6e9;
+            transform: translateY(-2px);
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #eafaf1;
+            color: #27ae60;
+        }
+
+        .status-pill.offline {
+            background: #fdecea;
+            color: #e74c3c;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .board {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .column {
+            flex: 0 0 320px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            max-height: 65vh;
+        }
+
+        .column-header {
+            padding: 20px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .todo .column-header { background: #e74c3c; }
+        .progress .column-header { background: #f39c12; }
+        .review .column-header { background: #3498db; }
+        .done .column-header { background: #2ecc71; }
+
+        .task-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .tasks {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 60px;
+        }
+
+        .task {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            cursor: grab;
+            border-left: 4px solid #3498db;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 8px 0;
+        }
+
+        .attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eef2f5;
+            color: #2c3e50;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            max-width: 100%;
+        }
+
+        .attachment-chip:hover { background: #dfe6e9; }
+
+        .attachment-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 140px;
+        }
+
+        .attachment-chip .remove-attachment {
+            color: #e74c3c;
+            margin-left: 4px;
+            cursor: pointer;
+        }
+
+        .attachment-menu {
+            position: absolute;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 6px;
+            z-index: 1100;
+        }
+
+        .attachment-menu button {
+            display: flex;
+            width: 100%;
+            background: none;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 13px;
+            padding: 8px 12px;
+        }
+
+        .attachment-menu button:hover { background: #f0f2f5; }
+
+        .file-input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .task:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .task:active { cursor: grabbing; }
+
+        .high-priority { border-left-color: #e74c3c; }
+        .medium-priority { border-left-color: #f39c12; }
+        .low-priority { border-left-color: #2ecc71; }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-right: 75px;
+        }
+
+        .task-title { font-weight: 600; font-size: 16px; overflow-wrap: break-word; word-break: break-word; }
+
+        .task-priority {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: #ecf0f1;
+            height: fit-content;
+        }
+
+        .task-description {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 6px;
+            line-height: 1.4;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .read-more-btn {
+            display: none;
+            background: none;
+            border: none;
+            padding: 0;
+            margin-bottom: 15px;
+            color: #3498db;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .read-more-btn:hover { text-decoration: underline; }
+
+        .view-description {
+            font-size: 15px;
+            color: #4a5a68;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            margin-bottom: 15px;
+        }
+
+        .view-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-assignee {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .task-due { font-size: 12px; color: #7f8c8d; }
+
+        .task-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        .task-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .task-action {
+            background: rgba(255, 255, 255, 0.8);
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: #7f8c8d;
+            transition: all 0.2s ease;
+        }
+
+        .task-action:hover { background: #ecf0f1; color: #3498db; }
+
+        .task-sheet { margin-top: 10px; font-size: 13px; }
+        .task-sheet:empty { display: none; }
+        .task-sheet a, .sheet-link a { color: #1976d2; overflow-wrap: anywhere; }
+        .task-section { margin-top: 20px; }
+        .task-section h3 { font-size: 15px; margin-bottom: 10px; }
+        .task-section textarea, .task-section input {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;
+            font: inherit;
+        }
+        .task-section textarea { min-height: 90px; resize: vertical; }
+        .task-section button { margin-top: 8px; }
+        .task-note { padding: 12px; margin: 8px 0; background: #f8f9fa; border-radius: 6px; }
+        .task-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
+        .task-note-meta { display: flex; justify-content: space-between; align-items: center;
+            gap: 10px; margin-top: 8px; font-size: 12px; color: #7f8c8d; }
+        .task-note-meta button { margin: 0; }
+        .task-feedback { color: #b03a2e; font-size: 13px; margin-top: 8px; }
+
+        .add-task {
+            padding: 15px 20px;
+            border-top: 1px solid #ecf0f1;
+            color: #7f8c8d;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+        }
+
+        .add-task:hover { background: #f8f9fa; color: #3498db; }
+
+        .dragging { opacity: 0.6; transform: rotate(5deg); }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 { font-weight: 600; color: #2c3e50; }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+
+        .modal-body { padding: 20px; }
+
+        .form-group { margin-bottom: 20px; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .form-group textarea { min-height: 100px; resize: vertical; }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .team-member {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            font-size: 13px;
+            text-align: center;
+            word-break: break-word;
+        }
+
+        .team-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .empty-note {
+            color: #b0b8bd;
+            font-size: 13px;
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .board { flex-direction: column; align-items: center; }
+            .column { flex: 0 0 auto; width: 100%; max-width: 400px; }
+            header { flex-direction: column; gap: 15px; text-align: center; }
+        }
+    </style>
 </head>
 <body>
-  <p>Opening <a href="public/">Team Task Board</a>...</p>
+<div class="container">
+
+    <!-- ===== LOGIN SCREEN ===== -->
+    <div id="login-screen">
+        <div class="login-card">
+            <h1><i class="fas fa-tasks"></i> Team Task Board</h1>
+            <div id="login-error"></div>
+            <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+            <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+            <div style="text-align:right; margin-top:-8px; margin-bottom:15px;">
+                <a href="#" id="forgot-password-link" style="font-size:13px; color:#3498db; text-decoration:none;">Forgot password?</a>
+            </div>
+            <button class="login-btn-primary" id="login-btn">Log In</button>
+            <button class="login-btn-secondary" id="signup-btn">Create Account</button>
+        </div>
+    </div>
+
+    <!-- ===== APP SCREEN ===== -->
+    <div id="app-screen">
+        <header>
+            <div class="logo">
+                <i class="fas fa-tasks"></i>
+                <h1>Enhanced Team Task Board</h1>
+                <span class="user-badge" id="user-badge"></span>
+            </div>
+            <div class="controls">
+                <span class="status-pill" id="sync-status"><span class="status-dot"></span> <span id="sync-status-text">Connecting...</span></span>
+                <button class="btn-primary" id="add-task-btn">
+                    <i class="fas fa-plus"></i> Add New Task
+                </button>
+                <button class="btn-secondary" id="team-members-btn">
+                    <i class="fas fa-users"></i> Team Members
+                </button>
+                <button class="btn-secondary" id="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Log Out
+                </button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="board">
+                <div class="column todo">
+                    <div class="column-header"><span>To Do</span><span class="task-count">0</span></div>
+                    <div class="tasks" data-column="todo"></div>
+                    <div class="add-task" data-column="todo"><i class="fas fa-plus"></i> Add a task</div>
+                </div>
+                <div class="column progress">
+                    <div class="column-header"><span>In Progress</span><span class="task-count">0</span></div>
+                    <div class="tasks" data-column="progress"></div>
+                    <div class="add-task" data-column="progress"><i class="fas fa-plus"></i> Add a task</div>
+                </div>
+                <div class="column review">
+                    <div class="column-header"><span>Review</span><span class="task-count">0</span></div>
+                    <div class="tasks" data-column="review"></div>
+                    <div class="add-task" data-column="review"><i class="fas fa-plus"></i> Add a task</div>
+                </div>
+                <div class="column done">
+                    <div class="column-header"><span>Done</span><span class="task-count">0</span></div>
+                    <div class="tasks" data-column="done"></div>
+                    <div class="add-task" data-column="done"><i class="fas fa-plus"></i> Add a task</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Team Members Modal -->
+<div class="modal" id="team-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Team Members</h2>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:#7f8c8d; font-size:14px;">Everyone who has signed up for this board:</p>
+            <div class="team-grid" id="team-grid"></div>
+            <div class="task-section" id="admin-allowlist" hidden>
+                <h3>Approved email addresses</h3>
+                <p style="font-size:13px; margin-bottom:8px;">Add an address before that person signs in.</p>
+                <input id="allowed-email-input" type="email" placeholder="person@example.com">
+                <button class="btn-primary" id="add-allowed-email" type="button">Approve email</button>
+                <div id="allowed-email-list"></div>
+                <div class="task-feedback" id="allowed-email-error" role="alert"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Task Modal (full text + attachments) -->
+<div class="modal" id="view-task-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="view-task-title">Task</h2>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="view-row">
+                <span id="view-task-priority"></span>
+                <span id="view-task-due"></span>
+            </div>
+            <div class="view-description" id="view-task-description"></div>
+            <div class="task-section">
+                <h3>Google Sheet</h3>
+                <div class="sheet-link" id="view-task-sheet"></div>
+                <button class="btn-secondary" id="edit-task-sheet" type="button" hidden>Add or change link</button>
+                <div id="task-sheet-editor" hidden>
+                    <label for="task-sheet-url">Google Sheets URL</label>
+                    <input id="task-sheet-url" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." maxlength="2000">
+                    <button class="btn-primary" id="save-task-sheet" type="button">Save link</button>
+                    <button class="btn-secondary" id="cancel-task-sheet" type="button">Cancel</button>
+                    <div class="task-feedback" id="task-sheet-error" role="alert"></div>
+                </div>
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:8px; font-weight:500; color:#2c3e50;">Attachments</label>
+                <div class="attachments-list" id="view-task-attachments"></div>
+            </div>
+            <div class="task-section" id="task-notes-section" hidden>
+                <h3>Private notes</h3>
+                <div id="task-notes-list"></div>
+                <label for="task-note-input">New note</label>
+                <textarea id="task-note-input" maxlength="5000" placeholder="Write a note for this task"></textarea>
+                <button class="btn-primary" id="save-task-note" type="button">Save note</button>
+                <div class="task-feedback" id="task-note-error" role="alert"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" id="close-view-task">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Task Modal -->
+<div class="modal" id="task-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Add New Task</h2>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="task-title">Task Title</label>
+                <input type="text" id="task-title" placeholder="Enter task title">
+            </div>
+            <div class="form-group">
+                <label for="task-description">Description</label>
+                <textarea id="task-description" placeholder="Enter task description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="task-priority">Priority</label>
+                <select id="task-priority">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="task-assignee">Assign To</label>
+                <select id="task-assignee"></select>
+            </div>
+            <div class="form-group">
+                <label for="task-due">Due Date</label>
+                <input type="date" id="task-due">
+            </div>
+            <div class="form-group">
+                <label for="task-form-sheet-url">Google Sheets URL (optional)</label>
+                <input type="url" id="task-form-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/..." maxlength="2000">
+            </div>
+            <div class="form-group">
+                <label for="task-attachment-input">Attachments</label>
+                <div class="file-input-row">
+                    <input type="file" id="task-attachment-input" multiple>
+                </div>
+                <div class="attachments-list" id="task-modal-attachments" style="margin-top:10px;"></div>
+                <div id="attachment-upload-status" style="font-size:13px; color:#7f8c8d; margin-top:6px;"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" id="cancel-task">Cancel</button>
+            <button class="btn-primary" id="save-task">Save Task</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Firebase (modular v10 SDK via CDN ESM) ===== -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+        getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+        onAuthStateChanged, signOut, sendPasswordResetEmail, sendEmailVerification, reload, getIdToken
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+        getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
+        onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+        getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDMOl1l9z_OeoJwKBjk5TSU6pZRuk5IXV0",
+        authDomain: "team-task-board-a1fb3.firebaseapp.com",
+        projectId: "team-task-board-a1fb3",
+        storageBucket: "team-task-board-a1fb3.firebasestorage.app",
+        messagingSenderId: "541421604800",
+        appId: "1:541421604800:web:982a3d1cdd7c6dea754225",
+        measurementId: "G-CYGHDGY5K9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    const tasksCol = collection(db, "tasks");
+    const usersCol = collection(db, "users");
+    const ADMIN_EMAIL = 'titanbusinesspros@gmail.com';
+
+    let currentUser = null;
+    let registering = false;
+    let isAdmin = false;
+    let unsubscribeTasks = null;
+    let unsubscribeUsers = null;
+    let unsubscribeAllowedEmails = null;
+    let teamMembers = {}; // uid -> {name, email}
+    let editingTaskId = null;
+    let editingTaskColumn = null;
+    let pendingFiles = [];
+    let existingAttachments = [];
+    let currentTasksById = {};
+    let viewedTaskId = null;
+    let unsubscribeNotes = null;
+    let notesTaskId = null;
+
+    // ---------- DOM refs ----------
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const loginBtn = document.getElementById('login-btn');
+    const signupBtn = document.getElementById('signup-btn');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userBadge = document.getElementById('user-badge');
+    const syncStatus = document.getElementById('sync-status');
+    const syncStatusText = document.getElementById('sync-status-text');
+
+    const addTaskBtn = document.getElementById('add-task-btn');
+    const teamMembersBtn = document.getElementById('team-members-btn');
+    const teamModal = document.getElementById('team-modal');
+    const taskModal = document.getElementById('task-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const closeModalButtons = document.querySelectorAll('.close-modal');
+    const cancelTaskBtn = document.getElementById('cancel-task');
+    const saveTaskBtn = document.getElementById('save-task');
+    const teamGrid = document.getElementById('team-grid');
+    const adminAllowlist = document.getElementById('admin-allowlist');
+    const allowedEmailInput = document.getElementById('allowed-email-input');
+    const addAllowedEmailBtn = document.getElementById('add-allowed-email');
+    const allowedEmailList = document.getElementById('allowed-email-list');
+    const allowedEmailError = document.getElementById('allowed-email-error');
+    const assigneeSelect = document.getElementById('task-assignee');
+
+    const viewTaskModal = document.getElementById('view-task-modal');
+    const viewTaskTitle = document.getElementById('view-task-title');
+    const viewTaskDescription = document.getElementById('view-task-description');
+    const viewTaskPriority = document.getElementById('view-task-priority');
+    const viewTaskDue = document.getElementById('view-task-due');
+    const viewTaskAttachments = document.getElementById('view-task-attachments');
+    const closeViewTaskBtn = document.getElementById('close-view-task');
+    const viewTaskSheet = document.getElementById('view-task-sheet');
+    const editTaskSheetBtn = document.getElementById('edit-task-sheet');
+    const taskSheetEditor = document.getElementById('task-sheet-editor');
+    const taskSheetUrlInput = document.getElementById('task-sheet-url');
+    const saveTaskSheetBtn = document.getElementById('save-task-sheet');
+    const cancelTaskSheetBtn = document.getElementById('cancel-task-sheet');
+    const taskSheetError = document.getElementById('task-sheet-error');
+    const taskNotesSection = document.getElementById('task-notes-section');
+    const taskNotesList = document.getElementById('task-notes-list');
+    const taskNoteInput = document.getElementById('task-note-input');
+    const saveTaskNoteBtn = document.getElementById('save-task-note');
+    const taskNoteError = document.getElementById('task-note-error');
+
+    const attachmentInput = document.getElementById('task-attachment-input');
+    const taskModalAttachments = document.getElementById('task-modal-attachments');
+    const attachmentUploadStatus = document.getElementById('attachment-upload-status');
+
+    // ---------- Auth actions ----------
+    signupBtn.addEventListener('click', async () => {
+        loginError.textContent = ''; loginError.classList.remove('success');
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value;
+        if (!email || !password) { loginError.textContent = 'Enter an email and password.'; return; }
+        registering = true;
+        try {
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            await sendEmailVerification(cred.user);
+            await signOut(auth);
+            setLoginMessage('Check your email, verify your address, then log in. The admin must also approve your address.', true);
+        } catch (e) {
+            loginError.textContent = friendlyAuthError(e);
+        } finally {
+            registering = false;
+        }
+    });
+
+    loginBtn.addEventListener('click', async () => {
+        loginError.textContent = ''; loginError.classList.remove('success');
+        const email = loginEmail.value.trim();
+        const password = loginPassword.value;
+        if (!email || !password) { loginError.textContent = 'Enter an email and password.'; return; }
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (e) {
+            loginError.textContent = friendlyAuthError(e);
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => signOut(auth));
+
+    forgotPasswordLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        setLoginMessage('', false);
+        const email = loginEmail.value.trim();
+        if (!email) {
+            setLoginMessage('Enter your email above first, then click "Forgot password?" again.', false);
+            return;
+        }
+        try {
+            await sendPasswordResetEmail(auth, email);
+            setLoginMessage(`Password reset email sent to ${email}. Check your inbox (and spam folder).`, true);
+        } catch (e) {
+            setLoginMessage(friendlyAuthError(e), false);
+        }
+    });
+
+    function setLoginMessage(text, isSuccess) {
+        loginError.textContent = text;
+        loginError.classList.toggle('success', isSuccess);
+    }
+
+    function friendlyAuthError(e) {
+        const code = e.code || '';
+        if (code.includes('email-already-in-use')) return 'That email is already registered — try logging in instead.';
+        if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'Incorrect email or password.';
+        if (code.includes('weak-password')) return 'Password should be at least 6 characters.';
+        if (code.includes('invalid-email')) return 'That email address looks invalid.';
+        return 'Something went wrong. Please try again.';
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (registering) return;
+        if (user) {
+            try {
+                await reload(user);
+                await getIdToken(user, true);
+                if (!user.emailVerified) {
+                    try { await sendEmailVerification(user); } catch (_) { /* The earlier message remains valid. */ }
+                    loginError.textContent = 'Verify your email using the link we sent, then log in again.';
+                    await signOut(auth);
+                    return;
+                }
+
+                const email = user.email.toLowerCase();
+                const isInitialAdmin = email === ADMIN_EMAIL;
+                const allowedSnap = isInitialAdmin ? null : await getDoc(doc(db, 'allowed_emails', email));
+                if (!isInitialAdmin && !allowedSnap.exists()) {
+                    loginError.textContent = 'Your email is not on the approved list. Contact the board owner.';
+                    await signOut(auth);
+                    return;
+                }
+
+                const profileRef = doc(db, 'users', user.uid);
+                const profileSnap = await getDoc(profileRef);
+                if (!profileSnap.exists()) {
+                    await setDoc(profileRef, {
+                        email,
+                        name: email.split('@')[0],
+                        joined: serverTimestamp()
+                    });
+                }
+            } catch (e) {
+                console.error('Login check failed:', e);
+                loginError.textContent = 'Your email is not on the approved list. Contact the board owner.';
+                await signOut(auth);
+                return;
+            }
+
+            currentUser = user;
+            isAdmin = user.email.toLowerCase() === ADMIN_EMAIL;
+            loginScreen.style.display = 'none';
+            appScreen.style.display = 'block';
+            userBadge.textContent = `Signed in as ${user.email}${isAdmin ? ' (admin)' : ''}`;
+            adminAllowlist.hidden = !isAdmin;
+            startListening();
+        } else {
+            currentUser = null;
+            isAdmin = false;
+            closeTaskView();
+            appScreen.style.display = 'none';
+            loginScreen.style.display = 'flex';
+            if (unsubscribeTasks) unsubscribeTasks();
+            if (unsubscribeUsers) unsubscribeUsers();
+            if (unsubscribeAllowedEmails) unsubscribeAllowedEmails();
+        }
+    });
+
+    // ---------- Realtime listeners ----------
+    function startListening() {
+        setSyncStatus(true);
+
+        if (isAdmin) {
+            unsubscribeAllowedEmails = onSnapshot(collection(db, 'allowed_emails'), (snap) => {
+                allowedEmailList.replaceChildren();
+                snap.forEach(emailDoc => {
+                    const row = document.createElement('div');
+                    row.className = 'task-note-meta';
+                    const label = document.createElement('span');
+                    label.textContent = emailDoc.id;
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'btn-secondary';
+                    remove.textContent = 'Remove';
+                    remove.addEventListener('click', async () => {
+                        if (!confirm(`Remove access for ${emailDoc.id}?`)) return;
+                        try { await deleteDoc(doc(db, 'allowed_emails', emailDoc.id)); }
+                        catch (error) {
+                            console.error('Could not remove approved email:', error);
+                            allowedEmailError.textContent = 'Could not remove this email.';
+                        }
+                    });
+                    row.append(label, remove);
+                    allowedEmailList.appendChild(row);
+                });
+            }, (error) => {
+                console.error('Could not load approved emails:', error);
+                allowedEmailError.textContent = 'Could not load approved emails.';
+            });
+        }
+
+        const usersQuery = query(usersCol, orderBy('joined', 'asc'));
+        unsubscribeUsers = onSnapshot(usersQuery, (snap) => {
+            teamMembers = {};
+            teamGrid.innerHTML = '';
+            assigneeSelect.innerHTML = '';
+            snap.forEach(d => {
+                const data = d.data();
+                teamMembers[d.id] = data;
+                const initials = (data.name || data.email || '?').slice(0, 2).toUpperCase();
+
+                const member = document.createElement('div');
+                member.className = 'team-member';
+                member.innerHTML = `<div class="team-avatar">${initials}</div><div>${escapeHtml(data.name || data.email)}</div>`;
+                teamGrid.appendChild(member);
+
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = data.name || data.email;
+                assigneeSelect.appendChild(opt);
+            });
+        }, (err) => { console.error(err); setSyncStatus(false); });
+
+        const tasksQuery = query(tasksCol, orderBy('createdAt', 'asc'));
+        unsubscribeTasks = onSnapshot(tasksQuery, (snap) => {
+            setSyncStatus(true);
+            renderAllTasks(snap.docs);
+        }, (err) => { console.error(err); setSyncStatus(false); });
+    }
+
+    function setSyncStatus(online) {
+        if (online) {
+            syncStatus.classList.remove('offline');
+            syncStatusText.textContent = 'Live';
+        } else {
+            syncStatus.classList.add('offline');
+            syncStatusText.textContent = 'Offline';
+        }
+    }
+
+    window.addEventListener('online', () => setSyncStatus(true));
+    window.addEventListener('offline', () => setSyncStatus(false));
+
+    // ---------- Rendering ----------
+    function renderAllTasks(docs) {
+        const columns = { todo: [], progress: [], review: [], done: [] };
+        currentTasksById = {};
+        docs.forEach(d => {
+            const data = d.data();
+            const col = columns[data.column] ? data.column : 'todo';
+            const task = { id: d.id, ...data };
+            columns[col].push(task);
+            currentTasksById[d.id] = task;
+        });
+
+        if (viewedTaskId) {
+            const viewedTask = currentTasksById[viewedTaskId];
+            if (viewedTask) refreshTaskView(viewedTask);
+            else closeTaskView();
+        }
+
+        Object.keys(columns).forEach(colName => {
+            const container = document.querySelector(`.tasks[data-column="${colName}"]`);
+            container.innerHTML = '';
+            if (columns[colName].length === 0) {
+                container.innerHTML = '<div class="empty-note">No tasks</div>';
+            }
+            columns[colName].forEach(task => container.appendChild(buildTaskCard(task)));
+            const countEl = container.closest('.column').querySelector('.task-count');
+            countEl.textContent = columns[colName].length;
+        });
+
+        // After the cards are in the DOM, check which descriptions are actually clipped
+        // and only show "Read more" for those.
+        document.querySelectorAll('.task-description').forEach(desc => {
+            const btn = desc.parentElement.querySelector('.read-more-btn');
+            if (btn && desc.scrollHeight > desc.clientHeight + 1) {
+                btn.style.display = 'inline-block';
+            }
+        });
+    }
+
+    function buildTaskCard(task) {
+        const el = document.createElement('div');
+        el.className = `task ${task.priority || 'medium'}-priority`;
+        el.setAttribute('draggable', canManageTask(task) ? 'true' : 'false');
+        el.dataset.taskId = task.id;
+
+        const assigneeData = teamMembers[task.assignee] || { name: 'Unassigned' };
+        const initials = (assigneeData.name || '?').slice(0, 2).toUpperCase();
+        const priorityLabel = (task.priority || 'medium');
+
+        const attachments = task.attachments || [];
+        const attachmentsHtml = attachments.map((a, i) =>
+            `<div class="attachment-chip" data-task-id="${task.id}" data-att-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span></div>`
+        ).join('');
+
+        el.innerHTML = `
+            <div class="task-actions">
+                ${isAdmin ? '<div class="task-action" title="Edit task" data-action="edit"><i class="fas fa-pen"></i></div>' : ''}
+                ${isAdmin ? '<div class="task-action" title="Delete task" data-action="delete"><i class="fas fa-trash"></i></div>' : ''}
+            </div>
+            <div class="task-header">
+                <div class="task-title">${escapeHtml(task.title || '')}</div>
+                <div class="task-priority">${priorityLabel.charAt(0).toUpperCase() + priorityLabel.slice(1)}</div>
+            </div>
+            <div class="task-description">${escapeHtml(task.description || '')}</div>
+            <div class="task-sheet"></div>
+            <button type="button" class="read-more-btn">Read more</button>
+            ${attachments.length ? `<div class="attachments-list">${attachmentsHtml}</div>` : ''}
+            <div class="task-footer">
+                <div class="task-assignee">
+                    <div class="avatar">${initials}</div>
+                    <span>${escapeHtml(assigneeData.name || 'Unassigned')}</span>
+                </div>
+                <div class="task-due">${task.dueDate ? formatDate(task.dueDate) : 'No due date'}</div>
+            </div>
+            <div class="task-meta">
+                <div>Last updated: ${task.lastUpdated || 'just now'}</div>
+            </div>
+        `;
+
+        const sheetUrl = normalizeSheetUrl(task.sheetUrl || '');
+        if (sheetUrl) {
+            const link = document.createElement('a');
+            link.href = sheetUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Open Google Sheet';
+            link.addEventListener('click', (event) => event.stopPropagation());
+            el.querySelector('.task-sheet').appendChild(link);
+        }
+
+        el.querySelector('.read-more-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openViewModal(task);
+        });
+
+        el.querySelectorAll('.attachment-chip').forEach(chip => {
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const att = attachments[Number(chip.dataset.attIndex)];
+                showAttachmentMenu(chip, att);
+            });
+        });
+
+        el.addEventListener('dragstart', () => el.classList.add('dragging'));
+        el.addEventListener('dragend', async () => {
+            el.classList.remove('dragging');
+            if (!canManageTask(task)) return;
+            const newColumn = el.closest('.tasks').dataset.column;
+            if (newColumn !== task.column) {
+                await updateDoc(doc(db, 'tasks', task.id), {
+                    column: newColumn,
+                    lastUpdated: new Date().toLocaleString()
+                });
+            }
+        });
+
+        el.querySelectorAll('.task-action').forEach(action => {
+            action.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (action.dataset.action === 'edit') {
+                    openTaskModal(task);
+                } else if (action.dataset.action === 'delete') {
+                    if (confirm('Delete this task?')) {
+                        try {
+                            await deleteDoc(doc(db, 'tasks', task.id));
+                        } catch (err) {
+                            alert('You do not have permission to delete tasks.');
+                        }
+                    }
+                }
+            });
+        });
+
+        return el;
+    }
+
+    // ---------- Drag & drop onto empty/column areas ----------
+    document.querySelectorAll('.tasks').forEach(container => {
+        container.addEventListener('dragover', e => {
+            e.preventDefault();
+            const dragging = document.querySelector('.dragging');
+            if (!dragging) return;
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) container.appendChild(dragging);
+            else container.insertBefore(dragging, afterElement);
+        });
+    });
+
+    function getDragAfterElement(container, y) {
+        const els = [...container.querySelectorAll('.task:not(.dragging)')];
+        return els.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset, element: child };
+            return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    // ---------- Task modal ----------
+    function openTaskModal(task) {
+        editingTaskId = task ? task.id : null;
+        modalTitle.textContent = task ? 'Edit Task' : 'Add New Task';
+        document.getElementById('task-title').value = task ? task.title : '';
+        document.getElementById('task-description').value = task ? task.description : '';
+        document.getElementById('task-priority').value = task ? task.priority : 'medium';
+        document.getElementById('task-assignee').value = task ? task.assignee : (currentUser ? currentUser.uid : '');
+        document.getElementById('task-due').value = task && task.dueDate ? task.dueDate : '';
+        document.getElementById('task-form-sheet-url').value = task ? task.sheetUrl || '' : '';
+        taskModal.dataset.column = task ? task.column : 'todo';
+
+        pendingFiles = [];
+        existingAttachments = task && task.attachments ? [...task.attachments] : [];
+        attachmentInput.value = '';
+        attachmentUploadStatus.textContent = '';
+        renderModalAttachments();
+
+        taskModal.style.display = 'flex';
+    }
+
+    function renderModalAttachments() {
+        const existingHtml = existingAttachments.map((a, i) =>
+            `<div class="attachment-chip" data-kind="existing" data-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span><i class="fas fa-times remove-attachment"></i></div>`
+        ).join('');
+        const pendingHtml = pendingFiles.map((f, i) =>
+            `<div class="attachment-chip" data-kind="pending" data-index="${i}"><i class="fas fa-clock"></i><span>${escapeHtml(f.name)}</span><i class="fas fa-times remove-attachment"></i></div>`
+        ).join('');
+        taskModalAttachments.innerHTML = existingHtml + pendingHtml;
+
+        taskModalAttachments.querySelectorAll('.attachment-chip').forEach(chip => {
+            chip.querySelector('.remove-attachment').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const idx = Number(chip.dataset.index);
+                if (chip.dataset.kind === 'pending') {
+                    pendingFiles.splice(idx, 1);
+                } else {
+                    const removed = existingAttachments.splice(idx, 1)[0];
+                    if (editingTaskId && removed) {
+                        try {
+                            await deleteObject(storageRef(storage, removed.path));
+                            await updateDoc(doc(db, 'tasks', editingTaskId), { attachments: existingAttachments });
+                        } catch (err) {
+                            console.error('Could not remove attachment:', err);
+                        }
+                    }
+                }
+                renderModalAttachments();
+            });
+            chip.addEventListener('click', () => {
+                const idx = Number(chip.dataset.index);
+                if (chip.dataset.kind === 'existing') {
+                    showAttachmentMenu(chip, existingAttachments[idx]);
+                }
+            });
+        });
+    }
+
+    attachmentInput.addEventListener('change', () => {
+        pendingFiles.push(...Array.from(attachmentInput.files));
+        attachmentInput.value = '';
+        renderModalAttachments();
+    });
+
+    addTaskBtn.addEventListener('click', () => openTaskModal(null));
+    document.querySelectorAll('.add-task').forEach(btn => {
+        btn.addEventListener('click', () => {
+            editingTaskId = null;
+            openTaskModal(null);
+            taskModal.dataset.column = btn.dataset.column;
+        });
+    });
+
+    teamMembersBtn.addEventListener('click', () => teamModal.style.display = 'flex');
+
+    closeModalButtons.forEach(btn => btn.addEventListener('click', () => {
+        teamModal.style.display = 'none';
+        taskModal.style.display = 'none';
+        closeTaskView();
+    }));
+    cancelTaskBtn.addEventListener('click', () => taskModal.style.display = 'none');
+    closeViewTaskBtn.addEventListener('click', closeTaskView);
+
+    // ---------- Task details, sheet link, and private notes ----------
+    function canManageTask(task) {
+        return !!currentUser && (isAdmin || task.assignee === currentUser.uid);
+    }
+
+    addAllowedEmailBtn.addEventListener('click', async () => {
+        if (!isAdmin) return;
+        const email = allowedEmailInput.value.trim().toLowerCase();
+        if (!allowedEmailInput.validity.valid || !email || email.includes('/')) {
+            allowedEmailError.textContent = 'Enter a valid email address.';
+            return;
+        }
+        addAllowedEmailBtn.disabled = true;
+        allowedEmailError.textContent = '';
+        try {
+            await setDoc(doc(db, 'allowed_emails', email), { addedAt: serverTimestamp() });
+            allowedEmailInput.value = '';
+        } catch (error) {
+            console.error('Could not approve email:', error);
+            allowedEmailError.textContent = 'Could not approve this email.';
+        } finally {
+            addAllowedEmailBtn.disabled = false;
+        }
+    });
+
+    function normalizeSheetUrl(value) {
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        if (trimmed.length > 2000) return null;
+        try {
+            const url = new URL(trimmed);
+            if (url.protocol !== 'https:' || url.hostname !== 'docs.google.com' ||
+                !/^\/spreadsheets\/d\/[^/]+(?:\/|$)/.test(url.pathname)) return null;
+            return url.href;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function stopNotes() {
+        if (unsubscribeNotes) unsubscribeNotes();
+        unsubscribeNotes = null;
+        notesTaskId = null;
+        taskNotesList.replaceChildren();
+    }
+
+    function closeTaskView() {
+        stopNotes();
+        viewedTaskId = null;
+        taskNotesSection.hidden = true;
+        taskNoteInput.value = '';
+        taskNoteError.textContent = '';
+        taskSheetEditor.hidden = true;
+        taskSheetError.textContent = '';
+        viewTaskModal.style.display = 'none';
+    }
+
+    function openViewModal(task) {
+        viewedTaskId = task.id;
+        refreshTaskView(task);
+        viewTaskModal.style.display = 'flex';
+    }
+
+    function refreshTaskView(task) {
+        viewTaskTitle.textContent = task.title || '';
+        viewTaskDescription.textContent = task.description || '';
+        const priorityLabel = (task.priority || 'medium');
+        viewTaskPriority.textContent = `Priority: ${priorityLabel.charAt(0).toUpperCase() + priorityLabel.slice(1)}`;
+        viewTaskDue.textContent = task.dueDate ? `Due: ${formatDate(task.dueDate)}` : 'No due date';
+
+        const attachments = task.attachments || [];
+        viewTaskAttachments.innerHTML = attachments.length
+            ? attachments.map((a, i) => `<div class="attachment-chip" data-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span></div>`).join('')
+            : '<div class="empty-note">No attachments</div>';
+        viewTaskAttachments.querySelectorAll('.attachment-chip').forEach(chip => {
+            chip.addEventListener('click', () => showAttachmentMenu(chip, attachments[Number(chip.dataset.index)]));
+        });
+
+        viewTaskSheet.replaceChildren();
+        const sheetUrl = normalizeSheetUrl(task.sheetUrl || '');
+        if (sheetUrl) {
+            const link = document.createElement('a');
+            link.href = sheetUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Open Google Sheet';
+            viewTaskSheet.appendChild(link);
+        } else {
+            viewTaskSheet.textContent = 'No sheet linked';
+        }
+
+        const canManage = canManageTask(task);
+        editTaskSheetBtn.hidden = !canManage;
+        taskNotesSection.hidden = !canManage;
+        if (!canManage) {
+            taskSheetEditor.hidden = true;
+            stopNotes();
+        } else if (notesTaskId !== task.id) {
+            startNotes(task.id);
+        }
+    }
+
+    editTaskSheetBtn.addEventListener('click', () => {
+        const task = currentTasksById[viewedTaskId];
+        if (!task || !canManageTask(task)) return;
+        taskSheetUrlInput.value = task.sheetUrl || '';
+        taskSheetError.textContent = '';
+        taskSheetEditor.hidden = false;
+        taskSheetUrlInput.focus();
+    });
+    cancelTaskSheetBtn.addEventListener('click', () => { taskSheetEditor.hidden = true; });
+    saveTaskSheetBtn.addEventListener('click', async () => {
+        const task = currentTasksById[viewedTaskId];
+        if (!task || !canManageTask(task)) return;
+        const sheetUrl = normalizeSheetUrl(taskSheetUrlInput.value);
+        if (sheetUrl === null) {
+            taskSheetError.textContent = 'Enter a valid Google Sheets URL, or leave it blank to remove the link.';
+            return;
+        }
+        saveTaskSheetBtn.disabled = true;
+        taskSheetError.textContent = '';
+        try {
+            await updateDoc(doc(db, 'tasks', task.id), {
+                sheetUrl,
+                lastUpdated: new Date().toLocaleString()
+            });
+            taskSheetEditor.hidden = true;
+        } catch (error) {
+            console.error('Could not save sheet link:', error);
+            taskSheetError.textContent = 'Could not save the link. Check your task permissions.';
+        } finally {
+            saveTaskSheetBtn.disabled = false;
+        }
+    });
+
+    function startNotes(taskId) {
+        stopNotes();
+        notesTaskId = taskId;
+        taskNotesList.textContent = 'Loading notes...';
+        const notesQuery = query(collection(db, 'tasks', taskId, 'notes'), orderBy('createdAt', 'asc'));
+        unsubscribeNotes = onSnapshot(notesQuery, (snapshot) => {
+            if (viewedTaskId !== taskId || !canManageTask(currentTasksById[taskId] || {})) return;
+            taskNoteError.textContent = '';
+            taskNotesList.replaceChildren();
+            if (snapshot.empty) {
+                taskNotesList.textContent = 'No notes yet.';
+                return;
+            }
+            snapshot.forEach(noteDoc => {
+                const note = noteDoc.data();
+                const item = document.createElement('div');
+                item.className = 'task-note';
+                const body = document.createElement('p');
+                body.textContent = note.body || '';
+                const meta = document.createElement('div');
+                meta.className = 'task-note-meta';
+                const author = document.createElement('span');
+                const authorName = teamMembers[note.authorUid]?.name || teamMembers[note.authorUid]?.email || 'Team member';
+                const when = note.createdAt?.toDate?.();
+                author.textContent = `${authorName} · ${when ? when.toLocaleString() : 'Just now'}`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-secondary';
+                remove.textContent = 'Delete';
+                remove.addEventListener('click', async () => {
+                    if (!confirm('Delete this note?')) return;
+                    remove.disabled = true;
+                    try {
+                        await deleteDoc(doc(db, 'tasks', taskId, 'notes', noteDoc.id));
+                    } catch (error) {
+                        console.error('Could not delete note:', error);
+                        taskNoteError.textContent = 'Could not delete the note. Check your task permissions.';
+                        remove.disabled = false;
+                    }
+                });
+                meta.append(author, remove);
+                item.append(body, meta);
+                taskNotesList.appendChild(item);
+            });
+        }, (error) => {
+            console.error('Could not load private notes:', error);
+            taskNotesList.textContent = 'Notes are unavailable.';
+            taskNoteError.textContent = 'Ask the administrator to check the Firestore note rules.';
+        });
+    }
+
+    saveTaskNoteBtn.addEventListener('click', async () => {
+        const task = currentTasksById[viewedTaskId];
+        if (!task || !canManageTask(task)) return;
+        const body = taskNoteInput.value.trim();
+        if (!body || body.length > 5000) {
+            taskNoteError.textContent = 'Write a note of up to 5,000 characters.';
+            return;
+        }
+        saveTaskNoteBtn.disabled = true;
+        taskNoteError.textContent = '';
+        try {
+            await addDoc(collection(db, 'tasks', task.id, 'notes'), {
+                body,
+                authorUid: currentUser.uid,
+                createdAt: serverTimestamp()
+            });
+            taskNoteInput.value = '';
+        } catch (error) {
+            console.error('Could not save note:', error);
+            taskNoteError.textContent = 'Could not save the note. Check your task permissions.';
+        } finally {
+            saveTaskNoteBtn.disabled = false;
+        }
+    });
+
+    // ---------- Attachment view/download menu ----------
+    let openAttachmentMenu = null;
+    document.addEventListener('click', () => {
+        if (openAttachmentMenu) { openAttachmentMenu.remove(); openAttachmentMenu = null; }
+    });
+
+    function showAttachmentMenu(anchorEl, attachment) {
+        if (openAttachmentMenu) { openAttachmentMenu.remove(); openAttachmentMenu = null; }
+        if (!attachment) return;
+
+        const menu = document.createElement('div');
+        menu.className = 'attachment-menu';
+        menu.innerHTML = `
+            <button type="button" data-action="view"><i class="fas fa-eye"></i>&nbsp;&nbsp;View</button>
+            <button type="button" data-action="download"><i class="fas fa-download"></i>&nbsp;&nbsp;Download</button>
+        `;
+        document.body.appendChild(menu);
+        const rect = anchorEl.getBoundingClientRect();
+        menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
+        menu.style.left = `${window.scrollX + rect.left}px`;
+        openAttachmentMenu = menu;
+
+        menu.querySelector('[data-action="view"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.open(attachment.url, '_blank');
+            menu.remove();
+            openAttachmentMenu = null;
+        });
+
+        menu.querySelector('[data-action="download"]').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const resp = await fetch(attachment.url);
+                const blob = await resp.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = attachment.name || 'file';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                console.error(err);
+                // Fall back to opening the file directly if fetching the blob fails
+                // (e.g. Storage CORS isn't configured for this origin yet).
+                window.open(attachment.url, '_blank');
+            }
+            menu.remove();
+            openAttachmentMenu = null;
+        });
+
+        menu.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    saveTaskBtn.addEventListener('click', async () => {
+        const title = document.getElementById('task-title').value.trim();
+        if (!title) { alert('Please enter a task title'); return; }
+        const sheetUrl = normalizeSheetUrl(document.getElementById('task-form-sheet-url').value);
+        if (sheetUrl === null) { alert('Enter a valid Google Sheets URL, or leave it blank.'); return; }
+
+        const payload = {
+            title,
+            description: document.getElementById('task-description').value.trim(),
+            priority: document.getElementById('task-priority').value,
+            assignee: document.getElementById('task-assignee').value,
+            dueDate: document.getElementById('task-due').value,
+            sheetUrl,
+            lastUpdated: new Date().toLocaleString()
+        };
+
+        saveTaskBtn.disabled = true;
+
+        try {
+            let taskId = editingTaskId;
+
+            if (!taskId) {
+                payload.column = taskModal.dataset.column || 'todo';
+                payload.createdAt = serverTimestamp();
+                payload.createdBy = currentUser.uid;
+                payload.attachments = existingAttachments;
+                const newDoc = await addDoc(tasksCol, payload);
+                taskId = newDoc.id;
+            } else {
+                await updateDoc(doc(db, 'tasks', taskId), payload);
+            }
+
+            if (pendingFiles.length) {
+                attachmentUploadStatus.textContent = `Uploading ${pendingFiles.length} file(s)...`;
+                for (const file of pendingFiles) {
+                    const path = `attachments/${taskId}/${Date.now()}_${file.name}`;
+                    const fileRef = storageRef(storage, path);
+                    await uploadBytes(fileRef, file);
+                    const url = await getDownloadURL(fileRef);
+                    await updateDoc(doc(db, 'tasks', taskId), {
+                        attachments: arrayUnion({ name: file.name, path, url, size: file.size, contentType: file.type || '' })
+                    });
+                }
+            }
+
+            taskModal.style.display = 'none';
+        } catch (e) {
+            console.error(e);
+            alert('Could not save task — check your connection and Firebase Storage rules.');
+        } finally {
+            saveTaskBtn.disabled = false;
+            attachmentUploadStatus.textContent = '';
+        }
+    });
+
+    // ---------- Helpers ----------
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        if (isNaN(date)) return dateString;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+</script>
 </body>
 </html>
