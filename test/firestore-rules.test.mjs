@@ -1,9 +1,8 @@
-import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, query,
-  serverTimestamp, setDoc, updateDoc, orderBy, Timestamp
+  addDoc, collection, deleteDoc, doc, getDoc, getDocs,
+  serverTimestamp, setDoc, updateDoc
 } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
@@ -12,91 +11,106 @@ const env = await initializeTestEnvironment({
   storage: { rules: readFileSync('storage.rules', 'utf8') }
 });
 
-const adminContext = env.authenticatedContext('admin', {
-  email: 'titanbusinesspros@gmail.com', email_verified: true
-});
-const assigneeContext = env.authenticatedContext('assignee', {
-  email: 'assignee@example.com', email_verified: true
-});
-const outsiderContext = env.authenticatedContext('outsider', {
-  email: 'outsider@example.com', email_verified: true
-});
-const unapprovedContext = env.authenticatedContext('unapproved', {
-  email: 'unapproved@example.com', email_verified: true
-});
-const admin = adminContext.firestore();
-const assignee = assigneeContext.firestore();
+const ownerAContext = env.authenticatedContext('owner-a', { email: 'owner-a@example.com', email_verified: true });
+const ownerBContext = env.authenticatedContext('owner-b', { email: 'owner-b@example.com', email_verified: true });
+const memberContext = env.authenticatedContext('member-a', { email: 'member@example.com', email_verified: true });
+const outsiderContext = env.authenticatedContext('outsider', { email: 'outsider@example.com', email_verified: true });
+const unverifiedContext = env.authenticatedContext('unverified', { email: 'unverified@example.com', email_verified: false });
+const ownerA = ownerAContext.firestore();
+const ownerB = ownerBContext.firestore();
+const member = memberContext.firestore();
 const outsider = outsiderContext.firestore();
-const unapproved = unapprovedContext.firestore();
-const unverifiedAdmin = env.authenticatedContext('fake-admin', {
-  email: 'titanbusinesspros@gmail.com', email_verified: false
-}).firestore();
-
-const task = db => doc(db, 'tasks', 'task-1');
-const note = db => doc(db, 'tasks', 'task-1', 'notes', 'note-1');
-const notes = db => collection(db, 'tasks', 'task-1', 'notes');
+const unverified = unverifiedContext.firestore();
+const board = (db, boardId) => doc(db, 'boards', boardId);
+const memberDoc = (db, boardId, uid) => doc(db, 'boards', boardId, 'members', uid);
+const invitation = (db, email, boardId) => doc(db, 'board_invites', email, 'boards', boardId);
+const localInvite = (db, boardId, email) => doc(db, 'boards', boardId, 'invites', email);
+const task = (db, boardId) => doc(db, 'boards', boardId, 'tasks', 'task-a');
+const notes = (db, boardId) => collection(db, 'boards', boardId, 'tasks', 'task-a', 'notes');
 
 try {
-  await env.withSecurityRulesDisabled(async context => {
-    const db = context.firestore();
-    await setDoc(doc(db, 'allowed_emails', 'assignee@example.com'), { addedAt: Timestamp.now() });
-    await setDoc(doc(db, 'allowed_emails', 'outsider@example.com'), { addedAt: Timestamp.now() });
-    await setDoc(doc(db, 'users', 'admin'), { email: 'titanbusinesspros@gmail.com', name: 'Admin', joined: Timestamp.now() });
-    await setDoc(doc(db, 'users', 'assignee'), { email: 'assignee@example.com', name: 'Assignee', joined: Timestamp.now() });
-    await setDoc(doc(db, 'users', 'outsider'), { email: 'outsider@example.com', name: 'Outsider', joined: Timestamp.now() });
-    await setDoc(task(db), {
-      title: 'Call people', description: '', priority: 'medium', assignee: 'assignee',
-      dueDate: '', sheetUrl: '', column: 'todo', createdAt: Timestamp.now(),
-      createdBy: 'admin', lastUpdated: '', attachments: []
-    });
-    await setDoc(note(db), { body: 'Private contact details', authorUid: 'assignee', createdAt: Timestamp.now() });
-  });
-
-  await assertSucceeds(getDoc(task(outsider)));
-  await assertSucceeds(getDoc(note(assignee)));
-  await assertSucceeds(getDocs(query(notes(assignee), orderBy('createdAt'))));
-  await assertSucceeds(getDoc(note(admin)));
-  await assertFails(getDoc(note(outsider)));
-  await assertFails(getDocs(query(notes(outsider), orderBy('createdAt'))));
-  await assertFails(getDoc(task(unapproved)));
-  await assertFails(getDoc(note(unapproved)));
-  await assertFails(getDoc(note(unverifiedAdmin)));
-  await assertFails(setDoc(doc(unverifiedAdmin, 'allowed_emails', 'unapproved@example.com'), {}));
-
-  await assertSucceeds(updateDoc(task(assignee), {
-    sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit', lastUpdated: 'now'
+  await assertSucceeds(setDoc(board(ownerA, 'owner-a'), {
+    ownerUid: 'owner-a', ownerEmail: 'owner-a@example.com', createdAt: serverTimestamp()
   }));
-  await assertSucceeds(updateDoc(task(assignee), { salesPitch: 'Call about the new offer', lastUpdated: 'now' }));
-  await assertFails(updateDoc(task(outsider), { salesPitch: 'Unauthorized change' }));
-  await assertFails(updateDoc(task(outsider), { sheetUrl: 'https://docs.google.com/spreadsheets/d/other/edit' }));
-  await assertFails(updateDoc(task(assignee), { assignee: 'outsider' }));
-  await assertFails(updateDoc(task(assignee), { notes: ['exposed'] }));
-  await assertFails(updateDoc(task(assignee), { sheetUrl: 'javascript:alert(1)' }));
+  await assertSucceeds(setDoc(memberDoc(ownerA, 'owner-a', 'owner-a'), {
+    email: 'owner-a@example.com', name: 'Owner A', role: 'admin', joined: serverTimestamp()
+  }));
+  await assertSucceeds(setDoc(board(ownerB, 'owner-b'), {
+    ownerUid: 'owner-b', ownerEmail: 'owner-b@example.com', createdAt: serverTimestamp()
+  }));
+  await assertSucceeds(setDoc(memberDoc(ownerB, 'owner-b', 'owner-b'), {
+    email: 'owner-b@example.com', name: 'Owner B', role: 'admin', joined: serverTimestamp()
+  }));
+  await assertFails(setDoc(board(outsider, 'owner-a'), {
+    ownerUid: 'outsider', ownerEmail: 'outsider@example.com', createdAt: serverTimestamp()
+  }));
+  await assertFails(setDoc(board(unverified, 'unverified'), {
+    ownerUid: 'unverified', ownerEmail: 'unverified@example.com', createdAt: serverTimestamp()
+  }));
+
+  await assertSucceeds(setDoc(localInvite(ownerA, 'owner-a', 'member@example.com'), {
+    email: 'member@example.com', addedAt: serverTimestamp()
+  }));
+  await assertSucceeds(setDoc(invitation(ownerA, 'member@example.com', 'owner-a'), {
+    boardId: 'owner-a', ownerEmail: 'owner-a@example.com', addedAt: serverTimestamp()
+  }));
+  await assertSucceeds(getDoc(invitation(member, 'member@example.com', 'owner-a')));
+  await assertFails(getDoc(invitation(outsider, 'member@example.com', 'owner-a')));
+  await assertFails(setDoc(memberDoc(outsider, 'owner-a', 'outsider'), {
+    email: 'outsider@example.com', name: 'Outsider', role: 'member', joined: serverTimestamp()
+  }));
+  await assertSucceeds(setDoc(memberDoc(member, 'owner-a', 'member-a'), {
+    email: 'member@example.com', name: 'Member', role: 'member', joined: serverTimestamp()
+  }));
+  await assertFails(updateDoc(memberDoc(member, 'owner-a', 'member-a'), { role: 'admin' }));
+
+  await assertSucceeds(setDoc(board(member, 'member-a'), {
+    ownerUid: 'member-a', ownerEmail: 'member@example.com', createdAt: serverTimestamp()
+  }));
+  await assertSucceeds(setDoc(memberDoc(member, 'member-a', 'member-a'), {
+    email: 'member@example.com', name: 'Member', role: 'admin', joined: serverTimestamp()
+  }));
+  await assertFails(getDoc(board(ownerB, 'owner-a')));
+
+  await assertSucceeds(setDoc(task(ownerA, 'owner-a'), {
+    title: 'Call people', description: '', salesPitch: '', priority: 'medium',
+    assignee: 'member-a', dueDate: '', sheetUrl: '', column: 'todo',
+    createdAt: serverTimestamp(), createdBy: 'owner-a', lastUpdated: '', attachments: []
+  }));
+  await assertSucceeds(getDoc(task(member, 'owner-a')));
+  await assertFails(getDoc(task(ownerB, 'owner-a')));
+  await assertFails(getDoc(task(outsider, 'owner-a')));
+  await assertFails(getDocs(collection(ownerB, 'boards', 'owner-a', 'tasks')));
+  await assertFails(getDoc(doc(ownerA, 'tasks', 'legacy-task')));
+  await assertSucceeds(updateDoc(task(member, 'owner-a'), { salesPitch: 'Our offer', lastUpdated: 'now' }));
+  await assertFails(updateDoc(task(member, 'owner-a'), { assignee: 'owner-b' }));
+  await assertFails(updateDoc(task(ownerB, 'owner-a'), { salesPitch: 'Cross-board edit' }));
+
+  const addedNote = await assertSucceeds(addDoc(notes(member, 'owner-a'), {
+    body: 'Private contact details', authorUid: 'member-a', createdAt: serverTimestamp()
+  }));
+  await assertSucceeds(getDoc(doc(ownerA, 'boards', 'owner-a', 'tasks', 'task-a', 'notes', addedNote.id)));
+  await assertFails(getDoc(doc(ownerB, 'boards', 'owner-a', 'tasks', 'task-a', 'notes', addedNote.id)));
+  await assertFails(getDocs(notes(outsider, 'owner-a')));
 
   const bucket = 'gs://team-task-board-a1fb3.firebasestorage.app';
-  const uploaded = assigneeContext.storage(bucket).ref('attachments/task-1/test.txt');
-  await assertSucceeds(uploaded.putString('Task attachment'));
-  await assertSucceeds(outsiderContext.storage(bucket).ref('attachments/task-1/test.txt').getMetadata());
-  await assertFails(outsiderContext.storage(bucket).ref('attachments/task-1/blocked.txt').putString('No access'));
-  await assertFails(unapprovedContext.storage(bucket).ref('attachments/task-1/test.txt').getMetadata());
-  await assertSucceeds(adminContext.storage(bucket).ref('attachments/task-1/test.txt').delete());
+  const flyerPath = 'boards/owner-a/attachments/task-a/flyer.png';
+  const flyer = memberContext.storage(bucket).ref(flyerPath);
+  await assertSucceeds(flyer.putString('Flyer'));
+  await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).getMetadata());
+  await assertFails(ownerBContext.storage(bucket).ref(flyerPath).getMetadata());
+  await assertFails(outsiderContext.storage(bucket).ref(flyerPath).getMetadata());
 
-  const addedNote = await assertSucceeds(addDoc(notes(assignee), {
-    body: 'Called two people', authorUid: 'assignee', createdAt: serverTimestamp()
-  }));
-  await assertFails(addDoc(notes(outsider), {
-    body: 'Not assigned', authorUid: 'outsider', createdAt: serverTimestamp()
-  }));
-  await assertSucceeds(deleteDoc(doc(admin, 'tasks', 'task-1', 'notes', addedNote.id)));
-  await assertFails(deleteDoc(note(outsider)));
-  await assertSucceeds(deleteDoc(note(assignee)));
+  await assertSucceeds(deleteDoc(invitation(ownerA, 'member@example.com', 'owner-a')));
+  await assertFails(getDoc(task(member, 'owner-a')));
+  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+  await assertSucceeds(deleteDoc(localInvite(ownerA, 'owner-a', 'member@example.com')));
+  await assertSucceeds(deleteDoc(memberDoc(ownerA, 'owner-a', 'member-a')));
+  await assertFails(getDoc(task(member, 'owner-a')));
+  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+  await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).delete());
 
-  await assertSucceeds(updateDoc(task(admin), { assignee: 'outsider' }));
-  await assertFails(getDocs(query(notes(assignee), orderBy('createdAt'))));
-  await assertSucceeds(getDocs(query(notes(outsider), orderBy('createdAt'))));
-  assert.equal((await getDoc(task(admin))).data().assignee, 'outsider');
-
-  console.log('Firestore privacy, sheet-link, and Storage rules passed.');
+  console.log('Board isolation, invitations, private notes, and Storage rules passed.');
 } finally {
   await env.cleanup();
 }

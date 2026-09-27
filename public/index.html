@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Team Task Board | Real-Time</title>
+    <title>Titan Team Task Board | Your team's work in one place</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -36,6 +36,26 @@
             align-items: center;
             justify-content: center;
             min-height: 80vh;
+        }
+
+        .landing-layout {
+            width: 100%; max-width: 1050px; display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(320px, 430px);
+            align-items: center; gap: 48px;
+        }
+        .landing-copy h1 { font-size: clamp(32px, 4vw, 52px); line-height: 1.1; margin-bottom: 18px; }
+        .landing-copy p { font-size: 18px; line-height: 1.6; color: #506477; margin-bottom: 24px; }
+        .landing-copy ul { list-style: none; display: grid; gap: 12px; color: #35506b; }
+        .landing-copy li::before { content: '✓'; color: #16803d; font-weight: 800; margin-right: 10px; }
+        .login-logo { display: block; width: min(180px, 55%); height: auto; margin: 0 auto 18px; }
+        .login-card .login-intro { color: #64748b; font-size: 14px; line-height: 1.5; margin: -12px 0 22px; }
+        .board-picker-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+        #board-picker { max-width: 240px; padding: 10px; border: 1px solid #d6dee8; border-radius: 6px; background: white; }
+        @media (max-width: 760px) {
+            .landing-layout { grid-template-columns: 1fr; gap: 28px; padding: 25px 0; }
+            .landing-copy { text-align: center; }
+            .landing-copy ul { text-align: left; max-width: 420px; margin: 0 auto; }
+            .login-card { margin: 0 auto; }
         }
 
         .login-card {
@@ -613,16 +633,29 @@
 
     <!-- ===== LOGIN SCREEN ===== -->
     <div id="login-screen">
-        <div class="login-card">
-            <h1><i class="fas fa-tasks"></i> Team Task Board</h1>
-            <div id="login-error"></div>
-            <input type="email" id="login-email" placeholder="Email" autocomplete="email">
-            <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
-            <div style="text-align:right; margin-top:-8px; margin-bottom:15px;">
-                <a href="#" id="forgot-password-link" style="font-size:13px; color:#3498db; text-decoration:none;">Forgot password?</a>
+        <div class="landing-layout">
+            <div class="landing-copy">
+                <h1>Keep your team moving.</h1>
+                <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, note, sheet, and flyer together.</p>
+                <ul>
+                    <li>See work move from To Do to Done</li>
+                    <li>Give each teammate access to your board</li>
+                    <li>Keep task notes visible only to the admin and assignee</li>
+                </ul>
             </div>
-            <button class="login-btn-primary" id="login-btn">Log In</button>
-            <button class="login-btn-secondary" id="signup-btn">Create Account</button>
+            <div class="login-card">
+                <img class="login-logo" src="assets/TTTB-Logo.png" alt="Titan Team Task Board logo">
+                <h1>Welcome to your board</h1>
+                <p class="login-intro">Sign in, or create an account to become the admin of your own board.</p>
+                <div id="login-error" role="status"></div>
+                <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+                <div style="text-align:right; margin-top:-8px; margin-bottom:15px;">
+                    <a href="#" id="forgot-password-link" style="font-size:13px; color:#3498db; text-decoration:none;">Forgot password?</a>
+                </div>
+                <button class="login-btn-primary" id="login-btn">Log In</button>
+                <button class="login-btn-secondary" id="signup-btn">Create my board</button>
+            </div>
         </div>
     </div>
 
@@ -635,6 +668,7 @@
                 <span class="user-badge" id="user-badge"></span>
             </div>
             <div class="controls">
+                <label class="board-picker-label" for="board-picker">Board <select id="board-picker"></select></label>
                 <span class="status-pill" id="sync-status"><span class="status-dot"></span> <span id="sync-status-text">Connecting...</span></span>
                 <button class="btn-primary" id="add-task-btn">
                     <i class="fas fa-plus"></i> Add New Task
@@ -683,13 +717,13 @@
             <button class="close-modal">&times;</button>
         </div>
         <div class="modal-body">
-            <p style="color:#7f8c8d; font-size:14px;">Everyone who has signed up for this board:</p>
+            <p style="color:#7f8c8d; font-size:14px;">People on this board:</p>
             <div class="team-grid" id="team-grid"></div>
             <div class="task-section" id="admin-allowlist" hidden>
-                <h3>Approved email addresses</h3>
-                <p style="font-size:13px; margin-bottom:8px;">Add an address before that person signs in.</p>
+                <h3>Invite people to this board</h3>
+                <p style="font-size:13px; margin-bottom:8px;">Add an email address. Once they sign up and verify it, they can choose your board.</p>
                 <input id="allowed-email-input" type="email" placeholder="person@example.com">
-                <button class="btn-primary" id="add-allowed-email" type="button">Approve email</button>
+                <button class="btn-primary" id="add-allowed-email" type="button">Add person</button>
                 <div id="allowed-email-list"></div>
                 <div class="task-feedback" id="allowed-email-error" role="alert"></div>
             </div>
@@ -823,7 +857,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
         getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
-        onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion
+        onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion, writeBatch
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import {
         getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -844,13 +878,13 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    const tasksCol = collection(db, "tasks");
-    const usersCol = collection(db, "users");
-    const ADMIN_EMAIL = 'titanbusinesspros@gmail.com';
-
     let currentUser = null;
     let registering = false;
     let isAdmin = false;
+    let currentBoardId = null;
+    let tasksCol = null;
+    let usersCol = null;
+    let unsubscribeInvitations = null;
     let unsubscribeTasks = null;
     let unsubscribeUsers = null;
     let unsubscribeAllowedEmails = null;
@@ -875,6 +909,7 @@
     const forgotPasswordLink = document.getElementById('forgot-password-link');
     const logoutBtn = document.getElementById('logout-btn');
     const userBadge = document.getElementById('user-badge');
+    const boardPicker = document.getElementById('board-picker');
     const syncStatus = document.getElementById('sync-status');
     const syncStatusText = document.getElementById('sync-status-text');
 
@@ -925,6 +960,14 @@
     const taskModalAttachments = document.getElementById('task-modal-attachments');
     const attachmentUploadStatus = document.getElementById('attachment-upload-status');
 
+    function boardRef(boardId = currentBoardId) { return doc(db, 'boards', boardId); }
+    function memberRef(uid, boardId = currentBoardId) { return doc(db, 'boards', boardId, 'members', uid); }
+    function taskRef(taskId) { return doc(db, 'boards', currentBoardId, 'tasks', taskId); }
+    function notesCol(taskId) { return collection(db, 'boards', currentBoardId, 'tasks', taskId, 'notes'); }
+    function noteRef(taskId, noteId) { return doc(db, 'boards', currentBoardId, 'tasks', taskId, 'notes', noteId); }
+    function boardInviteRef(email) { return doc(db, 'boards', currentBoardId, 'invites', email); }
+    function globalInviteRef(email, boardId = currentBoardId) { return doc(db, 'board_invites', email, 'boards', boardId); }
+
     // ---------- Auth actions ----------
     signupBtn.addEventListener('click', async () => {
         loginError.textContent = ''; loginError.classList.remove('success');
@@ -936,7 +979,7 @@
             const cred = await createUserWithEmailAndPassword(auth, email, password);
             await sendEmailVerification(cred.user);
             await signOut(auth);
-            setLoginMessage('Check your email, verify your address, then log in. The admin must also approve your address.', true);
+            setLoginMessage('Check your email, verify your address, then log in to your new board.', true);
         } catch (e) {
             loginError.textContent = friendlyAuthError(e);
         } finally {
@@ -1001,56 +1044,138 @@
                     return;
                 }
 
-                const email = user.email.toLowerCase();
-                const isInitialAdmin = email === ADMIN_EMAIL;
-                const allowedSnap = isInitialAdmin ? null : await getDoc(doc(db, 'allowed_emails', email));
-                if (!isInitialAdmin && !allowedSnap.exists()) {
-                    loginError.textContent = 'Your email is not on the approved list. Contact the board owner.';
-                    await signOut(auth);
-                    return;
-                }
-
-                const profileRef = doc(db, 'users', user.uid);
-                const profileSnap = await getDoc(profileRef);
-                if (!profileSnap.exists()) {
-                    await setDoc(profileRef, {
-                        email,
-                        name: email.split('@')[0],
-                        joined: serverTimestamp()
-                    });
-                }
+                await ensurePersonalBoard(user);
             } catch (e) {
-                console.error('Login check failed:', e);
-                loginError.textContent = 'Your email is not on the approved list. Contact the board owner.';
+                console.error('Could not open personal board:', e);
+                loginError.textContent = 'Could not open your board. Please try again.';
                 await signOut(auth);
                 return;
             }
 
             currentUser = user;
-            isAdmin = user.email.toLowerCase() === ADMIN_EMAIL;
             loginScreen.style.display = 'none';
             appScreen.style.display = 'block';
-            userBadge.textContent = `Signed in as ${user.email}${isAdmin ? ' (admin)' : ''}`;
-            adminAllowlist.hidden = !isAdmin;
-            startListening();
+            if (unsubscribeInvitations) unsubscribeInvitations();
+            unsubscribeInvitations = onSnapshot(
+                collection(db, 'board_invites', user.email.toLowerCase(), 'boards'),
+                renderBoardChoices,
+                error => { console.error('Could not load board invitations:', error); setSyncStatus(false); }
+            );
         } else {
+            if (unsubscribeInvitations) unsubscribeInvitations();
+            unsubscribeInvitations = null;
+            stopBoardListeners();
             currentUser = null;
             isAdmin = false;
-            closeTaskView();
+            currentBoardId = null;
+            allowedBoardIds = new Set();
             appScreen.style.display = 'none';
             loginScreen.style.display = 'flex';
-            if (unsubscribeTasks) unsubscribeTasks();
-            if (unsubscribeUsers) unsubscribeUsers();
-            if (unsubscribeAllowedEmails) unsubscribeAllowedEmails();
         }
     });
+
+    let allowedBoardIds = new Set();
+    let boardSwitchGeneration = 0;
+
+    async function ensurePersonalBoard(user) {
+        const email = user.email.toLowerCase();
+        const ownBoard = boardRef(user.uid);
+        if (!(await getDoc(ownBoard)).exists()) {
+            await setDoc(ownBoard, {
+                ownerUid: user.uid,
+                ownerEmail: email,
+                createdAt: serverTimestamp()
+            });
+        }
+        const ownMembership = memberRef(user.uid, user.uid);
+        if (!(await getDoc(ownMembership)).exists()) {
+            await setDoc(ownMembership, {
+                email,
+                name: email.split('@')[0],
+                role: 'admin',
+                joined: serverTimestamp()
+            });
+        }
+    }
+
+    function renderBoardChoices(snapshot) {
+        if (!currentUser) return;
+        const previousChoice = currentBoardId || boardPicker.value || currentUser.uid;
+        allowedBoardIds = new Set([currentUser.uid]);
+        boardPicker.replaceChildren();
+        const ownOption = document.createElement('option');
+        ownOption.value = currentUser.uid;
+        ownOption.textContent = 'My board (admin)';
+        boardPicker.appendChild(ownOption);
+        snapshot.forEach(inviteDoc => {
+            const boardId = inviteDoc.id;
+            if (boardId === currentUser.uid) return;
+            allowedBoardIds.add(boardId);
+            const option = document.createElement('option');
+            option.value = boardId;
+            option.textContent = `${inviteDoc.data().ownerEmail || 'Team'}'s board`;
+            boardPicker.appendChild(option);
+        });
+        const nextChoice = allowedBoardIds.has(previousChoice) ? previousChoice : currentUser.uid;
+        boardPicker.value = nextChoice;
+        if (currentBoardId !== nextChoice) switchBoard(nextChoice);
+    }
+
+    boardPicker.addEventListener('change', () => switchBoard(boardPicker.value));
+
+    async function switchBoard(boardId) {
+        if (!currentUser || !allowedBoardIds.has(boardId)) return;
+        const generation = ++boardSwitchGeneration;
+        try {
+            if (boardId !== currentUser.uid) {
+                const membership = memberRef(currentUser.uid, boardId);
+                if (!(await getDoc(membership)).exists()) {
+                    await setDoc(membership, {
+                        email: currentUser.email.toLowerCase(),
+                        name: currentUser.email.split('@')[0],
+                        role: 'member',
+                        joined: serverTimestamp()
+                    });
+                }
+            }
+            if (generation !== boardSwitchGeneration) return;
+            stopBoardListeners();
+            currentBoardId = boardId;
+            isAdmin = boardId === currentUser.uid;
+            tasksCol = collection(db, 'boards', boardId, 'tasks');
+            usersCol = collection(db, 'boards', boardId, 'members');
+            boardPicker.value = boardId;
+            userBadge.textContent = `Signed in as ${currentUser.email}${isAdmin ? ' (admin)' : ''}`;
+            adminAllowlist.hidden = !isAdmin;
+            renderAllTasks([]);
+            startListening();
+        } catch (error) {
+            console.error('Could not switch board:', error);
+            setSyncStatus(false);
+            if (boardId !== currentUser.uid) switchBoard(currentUser.uid);
+        }
+    }
+
+    function stopBoardListeners() {
+        boardSwitchGeneration++;
+        if (unsubscribeTasks) unsubscribeTasks();
+        if (unsubscribeUsers) unsubscribeUsers();
+        if (unsubscribeAllowedEmails) unsubscribeAllowedEmails();
+        unsubscribeTasks = null;
+        unsubscribeUsers = null;
+        unsubscribeAllowedEmails = null;
+        closeTaskView();
+        taskModal.style.display = 'none';
+        teamModal.style.display = 'none';
+    }
 
     // ---------- Realtime listeners ----------
     function startListening() {
         setSyncStatus(true);
+        const boardId = currentBoardId;
 
         if (isAdmin) {
-            unsubscribeAllowedEmails = onSnapshot(collection(db, 'allowed_emails'), (snap) => {
+            unsubscribeAllowedEmails = onSnapshot(collection(db, 'boards', boardId, 'invites'), (snap) => {
                 allowedEmailList.replaceChildren();
                 snap.forEach(emailDoc => {
                     const row = document.createElement('div');
@@ -1063,7 +1188,14 @@
                     remove.textContent = 'Remove';
                     remove.addEventListener('click', async () => {
                         if (!confirm(`Remove access for ${emailDoc.id}?`)) return;
-                        try { await deleteDoc(doc(db, 'allowed_emails', emailDoc.id)); }
+                        try {
+                            const batch = writeBatch(db);
+                            batch.delete(doc(db, 'boards', boardId, 'invites', emailDoc.id));
+                            batch.delete(globalInviteRef(emailDoc.id, boardId));
+                            const member = Object.entries(teamMembers).find(([, data]) => data.email === emailDoc.id);
+                            if (member) batch.delete(memberRef(member[0], boardId));
+                            await batch.commit();
+                        }
                         catch (error) {
                             console.error('Could not remove approved email:', error);
                             allowedEmailError.textContent = 'Could not remove this email.';
@@ -1090,7 +1222,7 @@
 
                 const member = document.createElement('div');
                 member.className = 'team-member';
-                member.innerHTML = `<div class="team-avatar">${initials}</div><div>${escapeHtml(data.name || data.email)}</div>`;
+                member.innerHTML = `<div class="team-avatar">${escapeHtml(initials)}</div><div>${escapeHtml(data.name || data.email)}</div>`;
                 teamGrid.appendChild(member);
 
                 const opt = document.createElement('option');
@@ -1167,11 +1299,11 @@
 
         const assigneeData = teamMembers[task.assignee] || { name: 'Unassigned' };
         const initials = (assigneeData.name || '?').slice(0, 2).toUpperCase();
-        const priorityLabel = (task.priority || 'medium');
+        const priorityLabel = ['low', 'medium', 'high'].includes(task.priority) ? task.priority : 'medium';
 
         const attachments = task.attachments || [];
         const attachmentsHtml = attachments.map((a, i) =>
-            `<div class="attachment-chip" data-task-id="${task.id}" data-att-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span></div>`
+            `<div class="attachment-chip" data-att-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span></div>`
         ).join('');
 
         el.innerHTML = `
@@ -1189,13 +1321,13 @@
             ${attachments.length ? `<div class="attachments-list">${attachmentsHtml}</div>` : ''}
             <div class="task-footer">
                 <div class="task-assignee">
-                    <div class="avatar">${initials}</div>
+                    <div class="avatar">${escapeHtml(initials)}</div>
                     <span>${escapeHtml(assigneeData.name || 'Unassigned')}</span>
                 </div>
-                <div class="task-due">${task.dueDate ? formatDate(task.dueDate) : 'No due date'}</div>
+                <div class="task-due">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : 'No due date'}</div>
             </div>
             <div class="task-meta">
-                <div>Last updated: ${task.lastUpdated || 'just now'}</div>
+                <div>Last updated: ${escapeHtml(task.lastUpdated || 'just now')}</div>
             </div>
         `;
 
@@ -1229,7 +1361,7 @@
             if (!canManageTask(task)) return;
             const newColumn = el.closest('.tasks').dataset.column;
             if (newColumn !== task.column) {
-                await updateDoc(doc(db, 'tasks', task.id), {
+                await updateDoc(taskRef(task.id), {
                     column: newColumn,
                     lastUpdated: new Date().toLocaleString()
                 });
@@ -1244,7 +1376,7 @@
                 } else if (action.dataset.action === 'delete') {
                     if (confirm('Delete this task?')) {
                         try {
-                            await deleteDoc(doc(db, 'tasks', task.id));
+                            await deleteDoc(taskRef(task.id));
                         } catch (err) {
                             alert('You do not have permission to delete tasks.');
                         }
@@ -1330,7 +1462,7 @@
                     if (editingTaskId && removed) {
                         try {
                             await deleteObject(storageRef(storage, removed.path));
-                            await updateDoc(doc(db, 'tasks', editingTaskId), { attachments: existingAttachments });
+                            await updateDoc(taskRef(editingTaskId), { attachments: existingAttachments });
                         } catch (err) {
                             console.error('Could not remove attachment:', err);
                         }
@@ -1387,7 +1519,18 @@
         addAllowedEmailBtn.disabled = true;
         allowedEmailError.textContent = '';
         try {
-            await setDoc(doc(db, 'allowed_emails', email), { addedAt: serverTimestamp() });
+            if (email === currentUser.email.toLowerCase()) {
+                allowedEmailError.textContent = 'You already own this board.';
+                return;
+            }
+            const batch = writeBatch(db);
+            batch.set(boardInviteRef(email), { email, addedAt: serverTimestamp() });
+            batch.set(globalInviteRef(email), {
+                boardId: currentBoardId,
+                ownerEmail: currentUser.email.toLowerCase(),
+                addedAt: serverTimestamp()
+            });
+            await batch.commit();
             allowedEmailInput.value = '';
         } catch (error) {
             console.error('Could not approve email:', error);
@@ -1442,7 +1585,7 @@
         viewTaskTitle.textContent = task.title || '';
         viewTaskDescription.textContent = task.description || '';
         viewTaskSalesPitch.textContent = task.salesPitch || 'No sales pitch yet.';
-        const priorityLabel = (task.priority || 'medium');
+        const priorityLabel = ['low', 'medium', 'high'].includes(task.priority) ? task.priority : 'medium';
         viewTaskPriority.textContent = `Priority: ${priorityLabel.charAt(0).toUpperCase() + priorityLabel.slice(1)}`;
         viewTaskDue.textContent = task.dueDate ? `Due: ${formatDate(task.dueDate)}` : 'No due date';
 
@@ -1500,7 +1643,7 @@
         saveTaskSalesPitchBtn.disabled = true;
         taskSalesPitchError.textContent = '';
         try {
-            await updateDoc(doc(db, 'tasks', task.id), {
+            await updateDoc(taskRef(task.id), {
                 salesPitch,
                 lastUpdated: new Date().toLocaleString()
             });
@@ -1533,7 +1676,7 @@
         saveTaskSheetBtn.disabled = true;
         taskSheetError.textContent = '';
         try {
-            await updateDoc(doc(db, 'tasks', task.id), {
+            await updateDoc(taskRef(task.id), {
                 sheetUrl,
                 lastUpdated: new Date().toLocaleString()
             });
@@ -1550,7 +1693,7 @@
         stopNotes();
         notesTaskId = taskId;
         taskNotesList.textContent = 'Loading notes...';
-        const notesQuery = query(collection(db, 'tasks', taskId, 'notes'), orderBy('createdAt', 'asc'));
+        const notesQuery = query(notesCol(taskId), orderBy('createdAt', 'asc'));
         unsubscribeNotes = onSnapshot(notesQuery, (snapshot) => {
             if (viewedTaskId !== taskId || !canManageTask(currentTasksById[taskId] || {})) return;
             taskNoteError.textContent = '';
@@ -1579,7 +1722,7 @@
                     if (!confirm('Delete this note?')) return;
                     remove.disabled = true;
                     try {
-                        await deleteDoc(doc(db, 'tasks', taskId, 'notes', noteDoc.id));
+                        await deleteDoc(noteRef(taskId, noteDoc.id));
                     } catch (error) {
                         console.error('Could not delete note:', error);
                         taskNoteError.textContent = 'Could not delete the note. Check your task permissions.';
@@ -1608,7 +1751,7 @@
         saveTaskNoteBtn.disabled = true;
         taskNoteError.textContent = '';
         try {
-            await addDoc(collection(db, 'tasks', task.id, 'notes'), {
+            await addDoc(notesCol(task.id), {
                 body,
                 authorUid: currentUser.uid,
                 createdAt: serverTimestamp()
@@ -1709,12 +1852,12 @@
                 const newDoc = await addDoc(tasksCol, payload);
                 taskId = newDoc.id;
             } else {
-                await updateDoc(doc(db, 'tasks', taskId), payload);
+                await updateDoc(taskRef(taskId), payload);
             }
 
             if (noteBody) {
                 try {
-                    await addDoc(collection(db, 'tasks', taskId, 'notes'), {
+                    await addDoc(notesCol(taskId), {
                         body: noteBody,
                         authorUid: currentUser.uid,
                         createdAt: serverTimestamp()
@@ -1730,11 +1873,11 @@
             if (pendingFiles.length) {
                 attachmentUploadStatus.textContent = `Uploading ${pendingFiles.length} file(s)...`;
                 for (const file of pendingFiles) {
-                    const path = `attachments/${taskId}/${Date.now()}_${file.name}`;
+                    const path = `boards/${currentBoardId}/attachments/${taskId}/${Date.now()}_${file.name}`;
                     const fileRef = storageRef(storage, path);
                     await uploadBytes(fileRef, file);
                     const url = await getDownloadURL(fileRef);
-                    await updateDoc(doc(db, 'tasks', taskId), {
+                    await updateDoc(taskRef(taskId), {
                         attachments: arrayUnion({ name: file.name, path, url, size: file.size, contentType: file.type || '' })
                     });
                 }

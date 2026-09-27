@@ -5,15 +5,18 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 
 ## Access
 
-- Sign in with email and password. Each user must verify their email address.
-- `titanbusinesspros@gmail.com` is the initial admin. After signing in, the admin
-  can approve additional email addresses from **Team Members**.
-- An approved team member may create a task and assign one team member to it.
-- The admin or assigned member may add or change that task's Google Sheets link.
-  The Sheet's owner still controls who may view or edit it in Google Drive.
-- Task notes are stored separately under `tasks/{taskId}/notes`. Only the admin
-  and current assignee may read, add, or delete them. Firestore Security Rules
-  enforce this; the public task documents do not contain note text.
+- Anyone may sign up with email and password. After verifying their email, they
+  get their own board and become its admin.
+- Each admin adds people by email from **Team Members**. An invited person must
+  sign up or sign in with that verified email. They can choose the admin's board
+  from the board picker, while keeping their own separate board.
+- Boards, tasks, attachments, and invitations are stored under the board owner's
+  user ID. Firestore and Storage rules keep each board separate. Removing an
+  invitation revokes that person's board access.
+- An admin or assigned member may add or change a task's Google Sheets link.
+  The Sheet's owner controls view and edit permissions in Google Drive.
+- Task notes are stored under `boards/{boardId}/tasks/{taskId}/notes` and only
+  the board admin and current assignee may read, add, or delete them.
 
 ## Deployment
 

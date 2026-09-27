@@ -7,36 +7,24 @@ service firebase.storage {
         && request.auth.token.email is string
         && request.auth.token.email_verified == true;
     }
-
-    function userEmail() {
-      return request.auth.token.email.lower();
+    function isMember(boardId) {
+      return verifiedUser()
+        && (request.auth.uid == boardId
+          ? firestore.exists(/databases/(default)/documents/boards/$(boardId)/members/$(request.auth.uid))
+          : firestore.exists(/databases/(default)/documents/board_invites/$(request.auth.token.email.lower())/boards/$(boardId)));
+    }
+    function canManageFile(boardId, taskId) {
+      return request.auth.uid == boardId
+        || firestore.get(/databases/(default)/documents/boards/$(boardId)/tasks/$(taskId)).data.createdBy == request.auth.uid
+        || firestore.get(/databases/(default)/documents/boards/$(boardId)/tasks/$(taskId)).data.assignee == request.auth.uid;
     }
 
-    function isAdmin() {
-      return verifiedUser() && userEmail() == 'titanbusinesspros@gmail.com';
-    }
-
-    function isApproved() {
-      return verifiedUser() && (
-        isAdmin() ||
-        firestore.exists(/databases/(default)/documents/allowed_emails/$(userEmail()))
-      );
-    }
-
-    match /attachments/{taskId}/{fileName} {
-      allow read: if isApproved();
-      allow create: if isApproved()
+    match /boards/{boardId}/attachments/{taskId}/{fileName} {
+      allow read: if isMember(boardId);
+      allow create: if isMember(boardId)
         && request.resource.size <= 20 * 1024 * 1024
-        && (
-          isAdmin() ||
-          firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid ||
-          firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.assignee == request.auth.uid
-        );
-      allow delete: if isApproved() && (
-        isAdmin() ||
-        firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.createdBy == request.auth.uid ||
-        firestore.get(/databases/(default)/documents/tasks/$(taskId)).data.assignee == request.auth.uid
-      );
+        && canManageFile(boardId, taskId);
+      allow delete: if isMember(boardId) && canManageFile(boardId, taskId);
       allow update: if false;
     }
   }
