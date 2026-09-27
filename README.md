@@ -24,6 +24,9 @@ This repository is configured for Firebase project `team-task-board-a1fb3`.
 The project uses the default Firestore database in `nam5` and a Storage bucket
 in `US-CENTRAL1`. Enable the **Email/Password** provider in Firebase Authentication
 before signing in. No Admin SDK or service-account key is needed for the site.
+Storage rules read Firestore invitations, so the Firebase Storage service agent
+must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
+already granted in `team-task-board-a1fb3`.
 
 ```sh
 firebase deploy --only firestore:rules,storage,hosting --project team-task-board-a1fb3

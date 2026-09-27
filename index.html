@@ -1827,6 +1827,10 @@
         if (sheetUrl === null) { alert('Enter a valid Google Sheets URL, or leave it blank.'); return; }
         const noteBody = document.getElementById('task-form-note').value.trim();
         if (noteBody.length > 5000) { alert('Notes must be 5,000 characters or fewer.'); return; }
+        if (pendingFiles.some(file => file.size > 20 * 1024 * 1024)) {
+            alert('Each attachment must be 20 MB or smaller. Remove the larger file and try again.');
+            return;
+        }
 
         const payload = {
             title,
@@ -1840,9 +1844,11 @@
         };
 
         saveTaskBtn.disabled = true;
+        let taskSaved = false;
+        let saveStep = 'task';
+        let taskId = editingTaskId;
 
         try {
-            let taskId = editingTaskId;
 
             if (!taskId) {
                 payload.column = taskModal.dataset.column || 'todo';
@@ -1851,9 +1857,11 @@
                 payload.attachments = existingAttachments;
                 const newDoc = await addDoc(tasksCol, payload);
                 taskId = newDoc.id;
+                editingTaskId = taskId;
             } else {
                 await updateDoc(taskRef(taskId), payload);
             }
+            taskSaved = true;
 
             if (noteBody) {
                 try {
@@ -1871,6 +1879,7 @@
             }
 
             if (pendingFiles.length) {
+                saveStep = 'attachment';
                 attachmentUploadStatus.textContent = `Uploading ${pendingFiles.length} file(s)...`;
                 for (const file of pendingFiles) {
                     const path = `boards/${currentBoardId}/attachments/${taskId}/${Date.now()}_${file.name}`;
@@ -1886,7 +1895,10 @@
             taskModal.style.display = 'none';
         } catch (e) {
             console.error(e);
-            alert('Could not save task — check your connection and Firebase Storage rules.');
+            const detail = e.code || e.message || 'unknown error';
+            alert(taskSaved && saveStep === 'attachment'
+                ? `The task was saved, but an attachment could not upload (${detail}). Click Save to retry the upload.`
+                : `Could not save the task (${detail}).`);
         } finally {
             saveTaskBtn.disabled = false;
             attachmentUploadStatus.textContent = '';

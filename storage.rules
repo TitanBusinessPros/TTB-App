@@ -10,7 +10,7 @@ service firebase.storage {
     function isMember(boardId) {
       return verifiedUser()
         && (request.auth.uid == boardId
-          ? firestore.exists(/databases/(default)/documents/boards/$(boardId)/members/$(request.auth.uid))
+          ? true
           : firestore.exists(/databases/(default)/documents/board_invites/$(request.auth.token.email.lower())/boards/$(boardId)));
     }
     function canManageFile(boardId, taskId) {
