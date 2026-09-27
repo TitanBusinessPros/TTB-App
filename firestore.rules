@@ -66,13 +66,21 @@ service cloud.firestore {
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.title is string
         && request.resource.data.assignee is string
+        && (!request.resource.data.keys().hasAny(['salesPitch'])
+          || (request.resource.data.salesPitch is string
+            && request.resource.data.salesPitch.size() <= 10000))
         && exists(/databases/$(database)/documents/users/$(request.resource.data.assignee))
         && validSheetUrl(request.resource.data.sheetUrl)
         && !request.resource.data.keys().hasAny(['notes']);
       allow update: if isApproved()
         && !request.resource.data.keys().hasAny(['notes'])
+        && (!request.resource.data.keys().hasAny(['salesPitch'])
+          || (request.resource.data.salesPitch is string
+            && request.resource.data.salesPitch.size() <= 10000))
         && (
           isAdmin() ||
+          (resource.data.assignee == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['salesPitch', 'lastUpdated'])) ||
           (resource.data.assignee == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetUrl', 'lastUpdated'])
             && validSheetUrl(request.resource.data.sheetUrl)) ||

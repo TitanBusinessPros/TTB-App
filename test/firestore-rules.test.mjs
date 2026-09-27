@@ -66,6 +66,8 @@ try {
   await assertSucceeds(updateDoc(task(assignee), {
     sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit', lastUpdated: 'now'
   }));
+  await assertSucceeds(updateDoc(task(assignee), { salesPitch: 'Call about the new offer', lastUpdated: 'now' }));
+  await assertFails(updateDoc(task(outsider), { salesPitch: 'Unauthorized change' }));
   await assertFails(updateDoc(task(outsider), { sheetUrl: 'https://docs.google.com/spreadsheets/d/other/edit' }));
   await assertFails(updateDoc(task(assignee), { assignee: 'outsider' }));
   await assertFails(updateDoc(task(assignee), { notes: ['exposed'] }));

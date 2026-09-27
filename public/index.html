@@ -711,6 +711,26 @@
             </div>
             <div class="view-description" id="view-task-description"></div>
             <div class="task-section">
+                <h3>Sales Pitch</h3>
+                <div class="view-description" id="view-task-sales-pitch"></div>
+                <button class="btn-secondary" id="edit-task-sales-pitch" type="button" hidden>Edit sales pitch</button>
+                <div id="task-sales-pitch-editor" hidden>
+                    <label for="task-sales-pitch-input">Sales Pitch</label>
+                    <textarea id="task-sales-pitch-input" maxlength="10000" placeholder="Write a sales pitch for this task"></textarea>
+                    <button class="btn-primary" id="save-task-sales-pitch" type="button">Save sales pitch</button>
+                    <button class="btn-secondary" id="cancel-task-sales-pitch" type="button">Cancel</button>
+                    <div class="task-feedback" id="task-sales-pitch-error" role="alert"></div>
+                </div>
+            </div>
+            <div class="task-section" id="task-notes-section" hidden>
+                <h3>Notes</h3>
+                <div id="task-notes-list"></div>
+                <label for="task-note-input">New private note</label>
+                <textarea id="task-note-input" maxlength="5000" placeholder="Write a note for this task"></textarea>
+                <button class="btn-primary" id="save-task-note" type="button">Save note</button>
+                <div class="task-feedback" id="task-note-error" role="alert"></div>
+            </div>
+            <div class="task-section">
                 <h3>Google Sheet</h3>
                 <div class="sheet-link" id="view-task-sheet"></div>
                 <button class="btn-secondary" id="edit-task-sheet" type="button" hidden>Add or change link</button>
@@ -725,14 +745,6 @@
             <div>
                 <label style="display:block; margin-bottom:8px; font-weight:500; color:#2c3e50;">Attachments</label>
                 <div class="attachments-list" id="view-task-attachments"></div>
-            </div>
-            <div class="task-section" id="task-notes-section" hidden>
-                <h3>Private notes</h3>
-                <div id="task-notes-list"></div>
-                <label for="task-note-input">New note</label>
-                <textarea id="task-note-input" maxlength="5000" placeholder="Write a note for this task"></textarea>
-                <button class="btn-primary" id="save-task-note" type="button">Save note</button>
-                <div class="task-feedback" id="task-note-error" role="alert"></div>
             </div>
         </div>
         <div class="modal-footer">
@@ -756,6 +768,15 @@
             <div class="form-group">
                 <label for="task-description">Description</label>
                 <textarea id="task-description" placeholder="Enter task description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="task-form-sales-pitch">Sales Pitch</label>
+                <textarea id="task-form-sales-pitch" maxlength="10000" placeholder="Enter a sales pitch"></textarea>
+            </div>
+            <div class="form-group" id="task-form-note-group">
+                <label for="task-form-note">Notes</label>
+                <textarea id="task-form-note" maxlength="5000" placeholder="Add a private note"></textarea>
+                <small>Only the admin and assigned person can view this note.</small>
             </div>
             <div class="form-group">
                 <label for="task-priority">Priority</label>
@@ -876,6 +897,13 @@
     const viewTaskModal = document.getElementById('view-task-modal');
     const viewTaskTitle = document.getElementById('view-task-title');
     const viewTaskDescription = document.getElementById('view-task-description');
+    const viewTaskSalesPitch = document.getElementById('view-task-sales-pitch');
+    const editTaskSalesPitchBtn = document.getElementById('edit-task-sales-pitch');
+    const taskSalesPitchEditor = document.getElementById('task-sales-pitch-editor');
+    const taskSalesPitchInput = document.getElementById('task-sales-pitch-input');
+    const saveTaskSalesPitchBtn = document.getElementById('save-task-sales-pitch');
+    const cancelTaskSalesPitchBtn = document.getElementById('cancel-task-sales-pitch');
+    const taskSalesPitchError = document.getElementById('task-sales-pitch-error');
     const viewTaskPriority = document.getElementById('view-task-priority');
     const viewTaskDue = document.getElementById('view-task-due');
     const viewTaskAttachments = document.getElementById('view-task-attachments');
@@ -1256,8 +1284,11 @@
         modalTitle.textContent = task ? 'Edit Task' : 'Add New Task';
         document.getElementById('task-title').value = task ? task.title : '';
         document.getElementById('task-description').value = task ? task.description : '';
+        document.getElementById('task-form-sales-pitch').value = task ? task.salesPitch || '' : '';
+        document.getElementById('task-form-note').value = '';
         document.getElementById('task-priority').value = task ? task.priority : 'medium';
         document.getElementById('task-assignee').value = task ? task.assignee : (currentUser ? currentUser.uid : '');
+        updateTaskFormNoteAccess();
         document.getElementById('task-due').value = task && task.dueDate ? task.dueDate : '';
         document.getElementById('task-form-sheet-url').value = task ? task.sheetUrl || '' : '';
         taskModal.dataset.column = task ? task.column : 'todo';
@@ -1270,6 +1301,14 @@
 
         taskModal.style.display = 'flex';
     }
+
+    function updateTaskFormNoteAccess() {
+        const canAddNote = isAdmin || (currentUser && assigneeSelect.value === currentUser.uid);
+        document.getElementById('task-form-note-group').hidden = !canAddNote;
+        if (!canAddNote) document.getElementById('task-form-note').value = '';
+    }
+
+    assigneeSelect.addEventListener('change', updateTaskFormNoteAccess);
 
     function renderModalAttachments() {
         const existingHtml = existingAttachments.map((a, i) =>
@@ -1388,6 +1427,8 @@
         taskNoteError.textContent = '';
         taskSheetEditor.hidden = true;
         taskSheetError.textContent = '';
+        taskSalesPitchEditor.hidden = true;
+        taskSalesPitchError.textContent = '';
         viewTaskModal.style.display = 'none';
     }
 
@@ -1400,6 +1441,7 @@
     function refreshTaskView(task) {
         viewTaskTitle.textContent = task.title || '';
         viewTaskDescription.textContent = task.description || '';
+        viewTaskSalesPitch.textContent = task.salesPitch || 'No sales pitch yet.';
         const priorityLabel = (task.priority || 'medium');
         viewTaskPriority.textContent = `Priority: ${priorityLabel.charAt(0).toUpperCase() + priorityLabel.slice(1)}`;
         viewTaskDue.textContent = task.dueDate ? `Due: ${formatDate(task.dueDate)}` : 'No due date';
@@ -1426,15 +1468,50 @@
         }
 
         const canManage = canManageTask(task);
+        editTaskSalesPitchBtn.hidden = !canManage;
         editTaskSheetBtn.hidden = !canManage;
         taskNotesSection.hidden = !canManage;
         if (!canManage) {
+            taskSalesPitchEditor.hidden = true;
             taskSheetEditor.hidden = true;
             stopNotes();
         } else if (notesTaskId !== task.id) {
             startNotes(task.id);
         }
     }
+
+    editTaskSalesPitchBtn.addEventListener('click', () => {
+        const task = currentTasksById[viewedTaskId];
+        if (!task || !canManageTask(task)) return;
+        taskSalesPitchInput.value = task.salesPitch || '';
+        taskSalesPitchError.textContent = '';
+        taskSalesPitchEditor.hidden = false;
+        taskSalesPitchInput.focus();
+    });
+    cancelTaskSalesPitchBtn.addEventListener('click', () => { taskSalesPitchEditor.hidden = true; });
+    saveTaskSalesPitchBtn.addEventListener('click', async () => {
+        const task = currentTasksById[viewedTaskId];
+        if (!task || !canManageTask(task)) return;
+        const salesPitch = taskSalesPitchInput.value.trim();
+        if (salesPitch.length > 10000) {
+            taskSalesPitchError.textContent = 'Sales pitch must be 10,000 characters or fewer.';
+            return;
+        }
+        saveTaskSalesPitchBtn.disabled = true;
+        taskSalesPitchError.textContent = '';
+        try {
+            await updateDoc(doc(db, 'tasks', task.id), {
+                salesPitch,
+                lastUpdated: new Date().toLocaleString()
+            });
+            taskSalesPitchEditor.hidden = true;
+        } catch (error) {
+            console.error('Could not save sales pitch:', error);
+            taskSalesPitchError.textContent = 'Could not save the sales pitch. Check your task permissions.';
+        } finally {
+            saveTaskSalesPitchBtn.disabled = false;
+        }
+    });
 
     editTaskSheetBtn.addEventListener('click', () => {
         const task = currentTasksById[viewedTaskId];
@@ -1605,10 +1682,13 @@
         if (!title) { alert('Please enter a task title'); return; }
         const sheetUrl = normalizeSheetUrl(document.getElementById('task-form-sheet-url').value);
         if (sheetUrl === null) { alert('Enter a valid Google Sheets URL, or leave it blank.'); return; }
+        const noteBody = document.getElementById('task-form-note').value.trim();
+        if (noteBody.length > 5000) { alert('Notes must be 5,000 characters or fewer.'); return; }
 
         const payload = {
             title,
             description: document.getElementById('task-description').value.trim(),
+            salesPitch: document.getElementById('task-form-sales-pitch').value.trim(),
             priority: document.getElementById('task-priority').value,
             assignee: document.getElementById('task-assignee').value,
             dueDate: document.getElementById('task-due').value,
@@ -1630,6 +1710,21 @@
                 taskId = newDoc.id;
             } else {
                 await updateDoc(doc(db, 'tasks', taskId), payload);
+            }
+
+            if (noteBody) {
+                try {
+                    await addDoc(collection(db, 'tasks', taskId, 'notes'), {
+                        body: noteBody,
+                        authorUid: currentUser.uid,
+                        createdAt: serverTimestamp()
+                    });
+                } catch (noteError) {
+                    console.error('Task saved but note failed:', noteError);
+                    taskModal.style.display = 'none';
+                    alert('Task saved, but the private note could not be saved. Open the task and try again.');
+                    return;
+                }
             }
 
             if (pendingFiles.length) {
