@@ -106,13 +106,6 @@
         .login-card .login-intro { color: #64748b; font-size: 14px; line-height: 1.5; margin: -12px 0 22px; }
         .board-picker-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
         #board-picker { max-width: 240px; padding: 10px; border: 1px solid #d6dee8; border-radius: 6px; background: white; }
-        @media (max-width: 760px) {
-            .landing-layout { grid-template-columns: 1fr; gap: 28px; padding: 25px 0; }
-            .landing-copy { text-align: center; }
-            .landing-copy ul { text-align: left; max-width: 420px; margin: 0 auto; }
-            .login-card { margin: 0 auto; }
-        }
-
         .login-card {
             background: white;
             border-radius: 12px;
@@ -711,11 +704,47 @@
         }
 
         @media (max-width: 768px) {
+            body { padding: 12px; }
+            .container, #app-screen { min-width: 0; }
+            #login-screen { display: block; min-height: 0; }
+            .landing-layout {
+                grid-template-columns: minmax(0, 1fr);
+                max-width: 440px;
+                gap: 18px;
+                margin: 0 auto;
+            }
+            .login-card { order: -1; max-width: none; margin: 0; padding: 24px; }
+            .login-logo { width: min(160px, 50%); margin-bottom: 14px; }
+            .landing-copy { text-align: left; }
+            .landing-copy h1 { font-size: 28px; margin-bottom: 12px; }
+            .landing-copy p { font-size: 16px; line-height: 1.45; margin-bottom: 14px; }
+            .landing-copy ul { max-width: none; margin: 0; gap: 8px; }
+            header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 16px;
+                margin-bottom: 16px;
+                text-align: left;
+            }
+            .logo { width: 100%; min-width: 0; flex-wrap: wrap; gap: 8px; }
+            .logo h1 { font-size: 22px; line-height: 1.15; }
+            .user-badge { flex-basis: 100%; margin-left: 0; overflow-wrap: anywhere; }
+            .controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+            .board-picker-label { grid-column: 1 / -1; width: 100%; }
+            #board-picker { flex: 1; min-width: 0; max-width: none; font-size: 16px; }
+            .status-pill { grid-column: 1 / -1; justify-self: start; }
+            .controls button { min-width: 0; justify-content: center; padding: 10px 8px; font-size: 13px; text-align: center; }
+            .board { align-items: flex-start; gap: 12px; padding-bottom: 12px; }
             .column {
-                flex-basis: min(320px, calc(100vw - 40px));
+                flex-basis: min(320px, calc(100vw - 24px));
+                height: auto;
+                min-height: 0;
+                max-height: none;
+            }
+            .column.has-tasks {
                 height: min(52dvh, 460px);
                 min-height: 360px;
-                max-height: none;
             }
             .column-header, .add-task { flex-shrink: 0; }
             .tasks {
@@ -737,7 +766,7 @@
                 scroll-snap-align: start;
                 scroll-snap-stop: always;
             }
-            header { flex-direction: column; gap: 15px; text-align: center; }
+            .column:not(.has-tasks) .tasks { display: block; scroll-snap-type: none; }
         }
     </style>
 </head>
@@ -1467,6 +1496,7 @@
             currentUser = user;
             loginScreen.style.display = 'none';
             appScreen.style.display = 'block';
+            window.scrollTo(0, 0);
             if (unsubscribeInvitations) unsubscribeInvitations();
             unsubscribeInvitations = onSnapshot(
                 collection(db, 'board_invites', user.email.toLowerCase(), 'boards'),
@@ -1482,7 +1512,8 @@
             currentBoardId = null;
             allowedBoardIds = new Set();
             appScreen.style.display = 'none';
-            loginScreen.style.display = 'flex';
+            loginScreen.style.display = '';
+            window.scrollTo(0, 0);
         }
     });
 
@@ -1557,6 +1588,7 @@
             tasksCol = collection(db, 'boards', boardId, 'tasks');
             usersCol = collection(db, 'boards', boardId, 'members');
             boardPicker.value = boardId;
+            window.scrollTo(0, 0);
             userBadge.textContent = `Signed in as ${currentUser.email}${isAdmin ? ' (admin)' : ''}`;
             adminAllowlist.hidden = !isAdmin;
             premiumGrantsAdmin.hidden = !isPlatformAdmin();
@@ -1700,12 +1732,14 @@
 
         Object.keys(columns).forEach(colName => {
             const container = document.querySelector(`.tasks[data-column="${colName}"]`);
+            const column = container.closest('.column');
+            column.classList.toggle('has-tasks', columns[colName].length > 0);
             container.innerHTML = '';
             if (columns[colName].length === 0) {
                 container.innerHTML = '<div class="empty-note">No tasks</div>';
             }
             columns[colName].forEach(task => container.appendChild(buildTaskCard(task)));
-            const countEl = container.closest('.column').querySelector('.task-count');
+            const countEl = column.querySelector('.task-count');
             countEl.textContent = columns[colName].length;
         });
 

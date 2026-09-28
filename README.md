@@ -43,6 +43,12 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   cards; the column no longer grows into a long task list. Long cards scroll
   internally. A seven-card mobile sample was checked in headless Edge, and the
   live page and `sw.js` returned HTTP 200 with `ttb-static-v12`.
+- On 2026-09-28, a Hosting-only follow-up moved the mobile login form to the
+  top at full width, tightened the signed-in header and board picker, and made
+  empty status columns compact. Screen changes reset the page scroll position.
+  Login, empty-board, and seven-task views were checked at an emulated 390px
+  viewport without horizontal overflow. The live page and `sw.js` returned
+  HTTP 200 with `ttb-static-v13`.
 
 ## Access
 
@@ -102,7 +108,7 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v12`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v13`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup

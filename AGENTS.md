@@ -27,7 +27,7 @@
 - `public/index.html` is the Firebase Hosting entry point. Keep its copy at
   `index.html` identical. Keep `public/sw.js` and `sw.js` identical and bump
   their cache name when releasing the app. The current cache is
-  `ttb-static-v12`.
+  `ttb-static-v13`.
 - The user authorized deploying future requested changes for this app to its
   Firebase project as part of completing the work. This standing preference
   applies only to `TTB-App`; it does not authorize GitHub pushes or changes to
@@ -42,6 +42,12 @@
   checked in headless Edge: the second card began at the bottom of the task
   viewport, and the task list was vertically scrollable. The live page and
   service worker returned HTTP 200 with `ttb-static-v12`.
+- The 2026-09-28 Hosting-only mobile spacing follow-up puts the full-width
+  login form first, removes vertical centering on phones, keeps the signed-in
+  board picker near the title, and collapses empty status columns. Login,
+  empty-board, and seven-task views were checked in Edge at an emulated 390px
+  viewport without horizontal overflow. The live page and service worker
+  returned HTTP 200 with `ttb-static-v13`.
 - The 2026-09-28 Current Task release added up to 30 checklist items between
   title and description. Each item has editable text and a completion checkbox
   that crosses it out. Admins create/edit items; admins and assignees can toggle
