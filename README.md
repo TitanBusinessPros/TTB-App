@@ -18,6 +18,13 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - Task notes are stored under `boards/{boardId}/tasks/{taskId}/notes` and only
   the board admin and current assignee may read, add, or delete them.
 
+## Install the app
+
+Open the live site on a phone or computer and choose **Install App**. On browsers
+that do not show an install prompt, use **Install app** or **Add to Home Screen**
+from the browser menu. The icon and favicon come from `favicon.zip` in the local
+workspace. An internet connection is required to load and sync board data.
+
 ## Deployment
 
 This repository is configured for Firebase project `team-task-board-a1fb3`.

@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#135da9">
+    <meta name="apple-mobile-web-app-title" content="TTB">
     <title>Titan Team Task Board | Your team's work in one place</title>
+    <link rel="icon" href="./icons/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="96x96" href="./icons/favicon-96x96.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+    <link rel="manifest" href="./site.webmanifest">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -102,6 +108,8 @@
         .login-btn-primary:hover { background: #2980b9; }
         .login-btn-secondary { background: #ecf0f1; color: #2c3e50; }
         .login-btn-secondary:hover { background: #dfe6e9; }
+        .login-card .login-install-btn { background: white; border: 1px solid #a7bfd7; color: #135da9; }
+        .login-card .login-install-btn:hover { background: #edf5fc; }
 
         #login-error {
             color: #e74c3c;
@@ -655,6 +663,7 @@
                 </div>
                 <button class="login-btn-primary" id="login-btn">Log In</button>
                 <button class="login-btn-secondary" id="signup-btn">Create my board</button>
+                <button class="login-install-btn" type="button" data-install-app>Install App</button>
             </div>
         </div>
     </div>
@@ -670,6 +679,7 @@
             <div class="controls">
                 <label class="board-picker-label" for="board-picker">Board <select id="board-picker"></select></label>
                 <span class="status-pill" id="sync-status"><span class="status-dot"></span> <span id="sync-status-text">Connecting...</span></span>
+                <button class="btn-secondary" type="button" data-install-app>Install App</button>
                 <button class="btn-primary" id="add-task-btn">
                     <i class="fas fa-plus"></i> Add New Task
                 </button>
@@ -847,6 +857,54 @@
         </div>
     </div>
 </div>
+
+<script>
+    (() => {
+        const installButtons = document.querySelectorAll('[data-install-app]');
+        const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        let installPrompt = null;
+
+        function updateInstallButtons() {
+            installButtons.forEach(button => { button.hidden = isInstalled(); });
+        }
+
+        window.addEventListener('beforeinstallprompt', event => {
+            event.preventDefault();
+            installPrompt = event;
+            updateInstallButtons();
+        });
+        window.addEventListener('appinstalled', () => {
+            installPrompt = null;
+            installButtons.forEach(button => { button.hidden = true; });
+        });
+
+        installButtons.forEach(button => button.addEventListener('click', async () => {
+            if (isInstalled()) return;
+            if (installPrompt) {
+                const prompt = installPrompt;
+                installPrompt = null;
+                try {
+                    await prompt.prompt();
+                    await prompt.userChoice;
+                    return;
+                } catch (error) {
+                    console.warn('App install prompt was unavailable:', error);
+                }
+            }
+            const instructions = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+                ? 'In Safari, tap Share, then Add to Home Screen.'
+                : 'Open your browser menu and choose Install app or Add to Home screen.';
+            alert(instructions);
+        }));
+
+        updateInstallButtons();
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(error => console.warn('App install setup failed:', error));
+            });
+        }
+    })();
+</script>
 
 <!-- ===== Firebase (modular v10 SDK via CDN ESM) ===== -->
 <script type="module">
