@@ -19,6 +19,14 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - A paid board unlocks document uploads and downloads and Google Sheets links
   for its admin and invited members. The Sheet's owner still controls view and
   edit permissions in Google Drive.
+- The verified `titanbusinesspros@gmail.com` account can open **Team Members**
+  and add email addresses to **One-year premium grants**. Each grant unlocks
+  premium for that email owner's board and its invited members for one calendar
+  year from the grant date, whether the owner has already signed up or signs up
+  later. The Titan admin can remove a grant there. Grant management runs in
+  authenticated Cloud Functions; browser clients cannot write grant documents
+  or board premium status directly. A paid Stripe subscription remains valid
+  if a separate complimentary grant is removed.
 - Task notes are stored under `boards/{boardId}/tasks/{taskId}/notes` and only
   the board admin and current assignee may read, add, or delete them.
 

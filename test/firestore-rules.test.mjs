@@ -103,6 +103,12 @@ try {
   await assertFails(updateDoc(task(ownerA, 'owner-a'), { sheetUrl: 'https://docs.google.com/spreadsheets/d/123' }));
   await assertFails(setDoc(sheet(member, 'owner-a'), { url: 'https://docs.google.com/spreadsheets/d/123' }));
   await assertFails(updateDoc(board(ownerA, 'owner-a'), { premiumActive: true }));
+  await assertFails(updateDoc(board(ownerA, 'owner-a'), {
+    premiumGrantUntil: Timestamp.fromMillis(Date.now() + 86400000)
+  }));
+  await assertFails(setDoc(doc(ownerA, 'premium_grants', 'owner-a@example.com'), {
+    email: 'owner-a@example.com', expiresAt: Timestamp.fromMillis(Date.now() + 86400000)
+  }));
 
   await env.withSecurityRulesDisabled(async context => {
     await updateDoc(board(context.firestore(), 'owner-a'), {
@@ -135,6 +141,21 @@ try {
   await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertFails(memberContext.storage(bucket).ref('boards/owner-a/attachments/task-a/new.png').putString('New', 'raw', { customMetadata: { uploaderUid: 'member-a' } }));
 
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), {
+      premiumGrantUntil: Timestamp.fromMillis(Date.now() + 86400000)
+    });
+  });
+  await assertSucceeds(getDoc(sheet(member, 'owner-a')));
+  await assertSucceeds(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), {
+      premiumGrantUntil: Timestamp.fromMillis(Date.now() - 86400000)
+    });
+  });
+  await assertFails(getDoc(sheet(member, 'owner-a')));
+  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+
   await assertFails(deleteDoc(invitation(ownerA, 'member@example.com', 'owner-a')));
   const revoke = writeBatch(ownerA);
   revoke.delete(invitation(ownerA, 'member@example.com', 'owner-a'));
@@ -147,7 +168,7 @@ try {
   await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).delete());
   await assertSucceeds(grantInvite('replacement@example.com', '1'));
 
-  console.log('Five-person limit, board isolation, private notes, and premium access rules passed.');
+  console.log('Five-person limit, board isolation, private notes, and paid/granted premium access rules passed.');
 } finally {
   await env.cleanup();
 }

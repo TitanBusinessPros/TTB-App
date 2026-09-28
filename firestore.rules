@@ -28,8 +28,10 @@ service cloud.firestore {
     }
     function isAdmin(boardId) { return isMember(boardId) && request.auth.uid == boardId; }
     function hasPremium(boardId) {
-      return get(/databases/$(database)/documents/boards/$(boardId)).data.premiumActive == true
-        && get(/databases/$(database)/documents/boards/$(boardId)).data.premiumUntil > request.time;
+      let board = get(/databases/$(database)/documents/boards/$(boardId)).data;
+      return (board.get('premiumActive', false) == true
+        && board.get('premiumUntil', request.time) > request.time)
+        || board.get('premiumGrantUntil', request.time) > request.time;
     }
     function isAssignee(boardId, taskId) {
       return exists(/databases/$(database)/documents/boards/$(boardId)/tasks/$(taskId))

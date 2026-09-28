@@ -1,8 +1,9 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, Timestamp } = require('firebase-admin/firestore');
+const { getFirestore, Timestamp, FieldValue } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { getAuth } = require('firebase-admin/auth');
 const Stripe = require('stripe');
@@ -10,8 +11,10 @@ const Stripe = require('stripe');
 initializeApp();
 const db = getFirestore();
 const webhookKey = defineSecret('STRIPE_WEBHOOK_SECRET');
+const platformAdminEmail = 'titanbusinesspros@gmail.com';
 const paymentLinkUrl = 'https://buy.stripe.com/bJe14o8Jz5ok85Q0oT7AI10';
 const boardDoc = uid => db.collection('boards').doc(uid);
+const premiumGrantDoc = email => db.collection('premium_grants').doc(email);
 const subscriptionDoc = id => db.collection('stripe_subscriptions').doc(id);
 const paidPeriodDoc = id => db.collection('stripe_paid_periods').doc(id);
 const acceptedEvents = new Set([
@@ -34,6 +37,93 @@ function nextYear(seconds) {
   return Timestamp.fromDate(date);
 }
 
+async function requirePlatformAdmin(request) {
+  if (!request.auth?.uid || request.auth.token.email_verified !== true
+    || request.auth.token.email?.toLowerCase() !== platformAdminEmail) {
+    throw new HttpsError('permission-denied', 'Only the Titan Business Pros admin can manage premium grants.');
+  }
+  const user = await getAuth().getUser(request.auth.uid);
+  if (!user.emailVerified || user.email?.toLowerCase() !== platformAdminEmail) {
+    throw new HttpsError('permission-denied', 'Only the Titan Business Pros admin can manage premium grants.');
+  }
+}
+
+function grantEmail(value) {
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.includes('/')) {
+    throw new HttpsError('invalid-argument', 'Enter a valid email address.');
+  }
+  return email;
+}
+
+exports.listPremiumGrants = onCall({ region: 'us-central1' }, async request => {
+  await requirePlatformAdmin(request);
+  const snapshot = await db.collection('premium_grants').orderBy('email').get();
+  return { grants: snapshot.docs.map(doc => ({
+    email: doc.id,
+    expiresAt: doc.data().expiresAt.toDate().toISOString(),
+  })) };
+});
+
+exports.grantPremiumYear = onCall({ region: 'us-central1' }, async request => {
+  await requirePlatformAdmin(request);
+  const email = grantEmail(request.data?.email);
+  const now = Timestamp.now();
+  const expiresAt = nextYear(Math.floor(now.toMillis() / 1000));
+  let uid = null;
+  try {
+    uid = (await getAuth().getUserByEmail(email)).uid;
+  } catch (error) {
+    if (error.code !== 'auth/user-not-found') throw error;
+  }
+  const grant = premiumGrantDoc(email);
+  const board = uid ? boardDoc(uid) : null;
+  await db.runTransaction(async tx => {
+    const boardSnapshot = board ? await tx.get(board) : null;
+    const boardId = boardSnapshot?.exists && boardSnapshot.data().ownerUid === uid
+      && boardSnapshot.data().ownerEmail === email ? uid : null;
+    tx.set(grant, { email, grantedAt: now, expiresAt, grantedByUid: request.auth.uid,
+      boardId: boardId || uid || null });
+    if (boardId) tx.update(board, { premiumGrantUntil: expiresAt });
+  });
+  return { email, expiresAt: expiresAt.toDate().toISOString() };
+});
+
+exports.revokePremiumGrant = onCall({ region: 'us-central1' }, async request => {
+  await requirePlatformAdmin(request);
+  const email = grantEmail(request.data?.email);
+  const grant = premiumGrantDoc(email);
+  await db.runTransaction(async tx => {
+    const grantSnapshot = await tx.get(grant);
+    if (!grantSnapshot.exists) return;
+    const uid = grantSnapshot.data().boardId;
+    const board = typeof uid === 'string' ? boardDoc(uid) : null;
+    const boardSnapshot = board ? await tx.get(board) : null;
+    tx.delete(grant);
+    if (boardSnapshot?.exists && boardSnapshot.data().ownerEmail === email) {
+      tx.update(board, { premiumGrantUntil: FieldValue.delete() });
+    }
+  });
+  return { email };
+});
+
+exports.activatePendingPremiumGrant = onDocumentCreated(
+  { document: 'boards/{boardId}', region: 'us-central1' }, async event => {
+    const boardId = event.params.boardId;
+    const email = event.data?.data()?.ownerEmail;
+    if (typeof email !== 'string' || !email || event.data.data().ownerUid !== boardId) return;
+    const board = boardDoc(boardId);
+    const grant = premiumGrantDoc(email);
+    await db.runTransaction(async tx => {
+      const [boardSnapshot, grantSnapshot] = await Promise.all([tx.get(board), tx.get(grant)]);
+      if (!boardSnapshot.exists || boardSnapshot.data().ownerEmail !== email
+        || !grantSnapshot.exists || grantSnapshot.data().expiresAt?.toMillis() <= Date.now()) return;
+      tx.update(board, { premiumGrantUntil: grantSnapshot.data().expiresAt });
+      tx.update(grant, { boardId });
+    });
+  }
+);
+
 exports.createPremiumCheckout = onCall({ region: 'us-central1' }, async request => {
   const user = request.auth;
   if (!user?.uid || !user.token.email_verified) {
@@ -43,7 +133,8 @@ exports.createPremiumCheckout = onCall({ region: 'us-central1' }, async request 
   if (!board.exists || board.data().ownerUid !== user.uid) {
     throw new HttpsError('failed-precondition', 'Your board is not ready.');
   }
-  if (board.data().premiumActive && board.data().premiumUntil?.toMillis() > Date.now()) {
+  if ((board.data().premiumActive && board.data().premiumUntil?.toMillis() > Date.now())
+    || board.data().premiumGrantUntil?.toMillis() > Date.now()) {
     throw new HttpsError('already-exists', 'This board already has premium access.');
   }
   return { url: `${paymentLinkUrl}?client_reference_id=${encodeURIComponent(user.uid)}` };

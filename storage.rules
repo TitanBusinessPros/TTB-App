@@ -14,8 +14,10 @@ service firebase.storage {
           : firestore.exists(/databases/(default)/documents/board_invites/$(request.auth.token.email.lower())/boards/$(boardId)));
     }
     function hasPremium(boardId) {
-      return firestore.get(/databases/(default)/documents/boards/$(boardId)).data.premiumActive == true
-        && firestore.get(/databases/(default)/documents/boards/$(boardId)).data.premiumUntil > request.time;
+      let board = firestore.get(/databases/(default)/documents/boards/$(boardId)).data;
+      return (board.get('premiumActive', false) == true
+        && board.get('premiumUntil', request.time) > request.time)
+        || board.get('premiumGrantUntil', request.time) > request.time;
     }
 
     match /boards/{boardId}/attachments/{taskId}/{fileName} {

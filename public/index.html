@@ -820,6 +820,15 @@
                 <div id="allowed-email-list"></div>
                 <div class="task-feedback" id="allowed-email-error" role="alert"></div>
             </div>
+            <div class="task-section" id="premium-grants-admin" hidden>
+                <h3>One-year premium grants</h3>
+                <p style="font-size:13px; margin-bottom:8px;">Enter an email to unlock premium for that person's board and up to four teammates. The grant begins today, even if they have not signed up yet.</p>
+                <label for="premium-grant-email">Email address</label>
+                <input id="premium-grant-email" type="email" placeholder="person@example.com" autocomplete="off">
+                <button class="btn-primary" id="add-premium-grant" type="button">Unlock for one year</button>
+                <div class="task-feedback" id="premium-grant-feedback" role="status"></div>
+                <div id="premium-grants-list"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1072,6 +1081,7 @@
     const storage = getStorage(app);
     const functions = getFunctions(app, 'us-central1');
     const INVITE_SLOT_IDS = ['1', '2', '3', '4'];
+    const PLATFORM_ADMIN_EMAIL = 'titanbusinesspros@gmail.com';
 
     let currentUser = null;
     let registering = false;
@@ -1125,6 +1135,11 @@
     const allowedEmailList = document.getElementById('allowed-email-list');
     const teamLimitStatus = document.getElementById('team-limit-status');
     const allowedEmailError = document.getElementById('allowed-email-error');
+    const premiumGrantsAdmin = document.getElementById('premium-grants-admin');
+    const premiumGrantEmail = document.getElementById('premium-grant-email');
+    const addPremiumGrantBtn = document.getElementById('add-premium-grant');
+    const premiumGrantFeedback = document.getElementById('premium-grant-feedback');
+    const premiumGrantsList = document.getElementById('premium-grants-list');
     const assigneeSelect = document.getElementById('task-assignee');
 
     const viewTaskModal = document.getElementById('view-task-modal');
@@ -1161,6 +1176,71 @@
     const premiumFeedback = document.getElementById('premium-feedback');
     const subscribePremiumBtn = document.getElementById('subscribe-premium');
     const taskFormSheetInput = document.getElementById('task-form-sheet-url');
+
+    function isPlatformAdmin() {
+        return currentUser?.emailVerified && currentUser.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL;
+    }
+
+    async function refreshPremiumGrants() {
+        if (!isPlatformAdmin()) return;
+        premiumGrantsList.textContent = 'Loading grants…';
+        try {
+            const result = await httpsCallable(functions, 'listPremiumGrants')();
+            premiumGrantsList.replaceChildren();
+            const grants = result.data?.grants || [];
+            if (!grants.length) { premiumGrantsList.textContent = 'No premium grants yet.'; return; }
+            grants.forEach(grant => {
+                const row = document.createElement('div');
+                row.className = 'task-note-meta';
+                const label = document.createElement('span');
+                label.textContent = `${grant.email} — until ${new Date(grant.expiresAt).toLocaleDateString()}`;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn-secondary';
+                remove.textContent = 'Remove';
+                remove.addEventListener('click', async () => {
+                    if (!confirm(`Remove the premium grant for ${grant.email}?`)) return;
+                    remove.disabled = true;
+                    try {
+                        await httpsCallable(functions, 'revokePremiumGrant')({ email: grant.email });
+                        premiumGrantFeedback.textContent = `Removed ${grant.email}.`;
+                        await refreshPremiumGrants();
+                    } catch (error) {
+                        console.error('Could not remove premium grant:', error);
+                        premiumGrantFeedback.textContent = 'Could not remove this grant. Please try again.';
+                        remove.disabled = false;
+                    }
+                });
+                row.append(label, remove);
+                premiumGrantsList.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Could not load premium grants:', error);
+            premiumGrantsList.textContent = 'Could not load premium grants.';
+        }
+    }
+
+    addPremiumGrantBtn.addEventListener('click', async () => {
+        if (!isPlatformAdmin()) return;
+        const email = premiumGrantEmail.value.trim().toLowerCase();
+        if (!premiumGrantEmail.validity.valid || !email) {
+            premiumGrantFeedback.textContent = 'Enter a valid email address.';
+            return;
+        }
+        addPremiumGrantBtn.disabled = true;
+        premiumGrantFeedback.textContent = 'Unlocking premium…';
+        try {
+            const result = await httpsCallable(functions, 'grantPremiumYear')({ email });
+            premiumGrantEmail.value = '';
+            premiumGrantFeedback.textContent = `${result.data.email} has premium until ${new Date(result.data.expiresAt).toLocaleDateString()}.`;
+            await refreshPremiumGrants();
+        } catch (error) {
+            console.error('Could not grant premium:', error);
+            premiumGrantFeedback.textContent = 'Could not grant premium. Please try again.';
+        } finally {
+            addPremiumGrantBtn.disabled = false;
+        }
+    });
 
     function openPremiumModal() {
         premiumFeedback.textContent = isAdmin ? '' : 'Ask this board’s admin to subscribe. One subscription covers the whole team.';
@@ -1379,9 +1459,11 @@
             boardPicker.value = boardId;
             userBadge.textContent = `Signed in as ${currentUser.email}${isAdmin ? ' (admin)' : ''}`;
             adminAllowlist.hidden = !isAdmin;
+            premiumGrantsAdmin.hidden = !isPlatformAdmin();
             unsubscribeBoard = onSnapshot(boardRef(boardId), snapshot => {
                 const data = snapshot.data() || {};
-                premiumActive = data.premiumActive === true && data.premiumUntil?.toMillis() > Date.now();
+                premiumActive = (data.premiumActive === true && data.premiumUntil?.toMillis() > Date.now())
+                    || data.premiumGrantUntil?.toMillis() > Date.now();
                 taskFormSheetInput.readOnly = !premiumActive;
                 if (!premiumActive) taskFormSheetInput.value = '';
                 renderAllTasks(Object.values(currentTasksById).map(task => ({ id: task.id, data: () => task })));
@@ -1739,7 +1821,10 @@
         });
     });
 
-    teamMembersBtn.addEventListener('click', () => teamModal.style.display = 'flex');
+    teamMembersBtn.addEventListener('click', () => {
+        teamModal.style.display = 'flex';
+        if (isPlatformAdmin()) refreshPremiumGrants();
+    });
 
     closeModalButtons.forEach(btn => btn.addEventListener('click', () => {
         teamModal.style.display = 'none';
