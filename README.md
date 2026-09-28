@@ -10,6 +10,9 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - Each admin adds people by email from **Team Members**. An invited person must
   sign up or sign in with that verified email. They can choose the admin's board
   from the board picker, while keeping their own separate board.
+- Each board has five places total: the admin and up to four invited people.
+  Pending invitations reserve a place until the admin removes them. Firestore
+  Security Rules enforce the limit with four invitation slots per board.
 - Boards, tasks, attachments, and invitations are stored under the board owner's
   user ID. Firestore and Storage rules keep each board separate. Removing an
   invitation revokes that person's board access.

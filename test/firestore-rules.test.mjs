@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   addDoc, collection, deleteDoc, doc, getDoc, getDocs,
-  serverTimestamp, setDoc, updateDoc
+  serverTimestamp, setDoc, updateDoc, writeBatch
 } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
@@ -25,8 +25,18 @@ const board = (db, boardId) => doc(db, 'boards', boardId);
 const memberDoc = (db, boardId, uid) => doc(db, 'boards', boardId, 'members', uid);
 const invitation = (db, email, boardId) => doc(db, 'board_invites', email, 'boards', boardId);
 const localInvite = (db, boardId, email) => doc(db, 'boards', boardId, 'invites', email);
+const slot = (db, boardId, slotId) => doc(db, 'boards', boardId, 'slots', slotId);
 const task = (db, boardId) => doc(db, 'boards', boardId, 'tasks', 'task-a');
 const notes = (db, boardId) => collection(db, 'boards', boardId, 'tasks', 'task-a', 'notes');
+const grantInvite = (email, slotId) => {
+  const batch = writeBatch(ownerA);
+  batch.set(slot(ownerA, 'owner-a', slotId), { email, addedAt: serverTimestamp() });
+  batch.set(localInvite(ownerA, 'owner-a', email), { email, slotId, addedAt: serverTimestamp() });
+  batch.set(invitation(ownerA, email, 'owner-a'), {
+    boardId: 'owner-a', ownerEmail: 'owner-a@example.com', slotId, addedAt: serverTimestamp()
+  });
+  return batch.commit();
+};
 
 try {
   await assertSucceeds(setDoc(board(ownerA, 'owner-a'), {
@@ -48,12 +58,16 @@ try {
     ownerUid: 'unverified', ownerEmail: 'unverified@example.com', createdAt: serverTimestamp()
   }));
 
-  await assertSucceeds(setDoc(localInvite(ownerA, 'owner-a', 'member@example.com'), {
-    email: 'member@example.com', addedAt: serverTimestamp()
+  await assertSucceeds(grantInvite('member@example.com', '1'));
+  await assertSucceeds(grantInvite('second@example.com', '2'));
+  await assertSucceeds(grantInvite('third@example.com', '3'));
+  await assertSucceeds(grantInvite('fourth@example.com', '4'));
+  await assertFails(grantInvite('fifth@example.com', '5'));
+  await assertFails(grantInvite('fifth@example.com', '4'));
+  await assertFails(setDoc(invitation(ownerA, 'fifth@example.com', 'owner-a'), {
+    boardId: 'owner-a', ownerEmail: 'owner-a@example.com', slotId: '4', addedAt: serverTimestamp()
   }));
-  await assertSucceeds(setDoc(invitation(ownerA, 'member@example.com', 'owner-a'), {
-    boardId: 'owner-a', ownerEmail: 'owner-a@example.com', addedAt: serverTimestamp()
-  }));
+  await assertFails(deleteDoc(slot(ownerA, 'owner-a', '1')));
   await assertSucceeds(getDoc(invitation(member, 'member@example.com', 'owner-a')));
   await assertFails(getDoc(invitation(outsider, 'member@example.com', 'owner-a')));
   await assertFails(setDoc(memberDoc(outsider, 'owner-a', 'outsider'), {
@@ -101,16 +115,19 @@ try {
   await assertFails(ownerBContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertFails(outsiderContext.storage(bucket).ref(flyerPath).getMetadata());
 
-  await assertSucceeds(deleteDoc(invitation(ownerA, 'member@example.com', 'owner-a')));
-  await assertFails(getDoc(task(member, 'owner-a')));
-  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
-  await assertSucceeds(deleteDoc(localInvite(ownerA, 'owner-a', 'member@example.com')));
-  await assertSucceeds(deleteDoc(memberDoc(ownerA, 'owner-a', 'member-a')));
+  await assertFails(deleteDoc(invitation(ownerA, 'member@example.com', 'owner-a')));
+  const revoke = writeBatch(ownerA);
+  revoke.delete(invitation(ownerA, 'member@example.com', 'owner-a'));
+  revoke.delete(localInvite(ownerA, 'owner-a', 'member@example.com'));
+  revoke.delete(slot(ownerA, 'owner-a', '1'));
+  revoke.delete(memberDoc(ownerA, 'owner-a', 'member-a'));
+  await assertSucceeds(revoke.commit());
   await assertFails(getDoc(task(member, 'owner-a')));
   await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).delete());
+  await assertSucceeds(grantInvite('replacement@example.com', '1'));
 
-  console.log('Board isolation, invitations, private notes, and Storage rules passed.');
+  console.log('Five-person limit, board isolation, private notes, and Storage rules passed.');
 } finally {
   await env.cleanup();
 }

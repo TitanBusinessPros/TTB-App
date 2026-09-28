@@ -14,6 +14,13 @@ service cloud.firestore {
     function invitePath(email, boardId) {
       return /databases/$(database)/documents/board_invites/$(email)/boards/$(boardId);
     }
+    function localInvitePath(boardId, email) {
+      return /databases/$(database)/documents/boards/$(boardId)/invites/$(email);
+    }
+    function slotPath(boardId, slotId) {
+      return /databases/$(database)/documents/boards/$(boardId)/slots/$(slotId);
+    }
+    function validSlotId(slotId) { return slotId is string && slotId in ['1', '2', '3', '4']; }
     function isMember(boardId) {
       return verifiedUser()
         && exists(memberPath(boardId, request.auth.uid))
@@ -31,13 +38,19 @@ service cloud.firestore {
 
     match /board_invites/{email}/boards/{boardId} {
       allow get, list: if verifiedUser() && userEmail() == email;
-      allow create, update: if isAdmin(boardId)
-        && request.resource.data.keys().hasAll(['boardId', 'ownerEmail', 'addedAt'])
-        && request.resource.data.keys().hasOnly(['boardId', 'ownerEmail', 'addedAt'])
+      allow create: if isAdmin(boardId)
+        && request.resource.data.keys().hasAll(['boardId', 'ownerEmail', 'slotId', 'addedAt'])
+        && request.resource.data.keys().hasOnly(['boardId', 'ownerEmail', 'slotId', 'addedAt'])
         && request.resource.data.boardId == boardId
         && request.resource.data.ownerEmail == userEmail()
+        && email == email.lower()
+        && validSlotId(request.resource.data.slotId)
+        && getAfter(slotPath(boardId, request.resource.data.slotId)).data.email == email
         && request.resource.data.addedAt == request.time;
-      allow delete: if isAdmin(boardId);
+      allow update: if false;
+      allow delete: if isAdmin(boardId)
+        && validSlotId(resource.data.slotId)
+        && !existsAfter(slotPath(boardId, resource.data.slotId));
     }
 
     match /boards/{boardId} {
@@ -52,12 +65,37 @@ service cloud.firestore {
       allow update, delete: if false;
 
       match /invites/{email} {
-        allow get, list, delete: if isAdmin(boardId);
-        allow create, update: if isAdmin(boardId)
+        allow get, list: if isAdmin(boardId);
+        allow create: if isAdmin(boardId)
+          && request.resource.data.keys().hasAll(['email', 'slotId', 'addedAt'])
+          && request.resource.data.keys().hasOnly(['email', 'slotId', 'addedAt'])
+          && request.resource.data.email == email
+          && email == email.lower()
+          && validSlotId(request.resource.data.slotId)
+          && getAfter(slotPath(boardId, request.resource.data.slotId)).data.email == email
+          && request.resource.data.addedAt == request.time;
+        allow update: if false;
+        allow delete: if isAdmin(boardId)
+          && validSlotId(resource.data.slotId)
+          && !existsAfter(slotPath(boardId, resource.data.slotId));
+      }
+
+      match /slots/{slotId} {
+        allow get, list: if isAdmin(boardId);
+        allow create: if isAdmin(boardId)
+          && validSlotId(slotId)
           && request.resource.data.keys().hasAll(['email', 'addedAt'])
           && request.resource.data.keys().hasOnly(['email', 'addedAt'])
-          && request.resource.data.email == email
-          && request.resource.data.addedAt == request.time;
+          && request.resource.data.email is string
+          && request.resource.data.email == request.resource.data.email.lower()
+          && request.resource.data.email.size() <= 320
+          && request.resource.data.addedAt == request.time
+          && getAfter(localInvitePath(boardId, request.resource.data.email)).data.slotId == slotId
+          && getAfter(invitePath(request.resource.data.email, boardId)).data.slotId == slotId;
+        allow update: if false;
+        allow delete: if isAdmin(boardId)
+          && !existsAfter(localInvitePath(boardId, resource.data.email))
+          && !existsAfter(invitePath(resource.data.email, boardId));
       }
 
       match /members/{uid} {

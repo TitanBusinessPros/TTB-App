@@ -174,9 +174,11 @@
             gap: 15px;
         }
 
-        .logo i {
-            font-size: 32px;
-            color: #3498db;
+        .logo img {
+            width: 42px;
+            height: 42px;
+            object-fit: contain;
+            flex: none;
         }
 
         .logo h1 {
@@ -679,7 +681,7 @@
         <div class="landing-layout">
             <div class="landing-copy">
                 <h1>Keep your team moving.</h1>
-                <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, note, sheet, and flyer together.</p>
+                <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, note, sheet, and document together.</p>
                 <ul>
                     <li>See work move from To Do to Done</li>
                     <li>Give each teammate access to your board</li>
@@ -707,8 +709,8 @@
     <div id="app-screen">
         <header>
             <div class="logo">
-                <i class="fas fa-tasks"></i>
-                <h1>Enhanced Team Task Board</h1>
+                <img src="./icons/favicon-96x96.png" alt="">
+                <h1>Titan Team Task Board</h1>
                 <span class="user-badge" id="user-badge"></span>
             </div>
             <div class="controls">
@@ -766,7 +768,8 @@
             <div class="team-grid" id="team-grid"></div>
             <div class="task-section" id="admin-allowlist" hidden>
                 <h3>Invite people to this board</h3>
-                <p style="font-size:13px; margin-bottom:8px;">Add an email address. Once they sign up and verify it, they can choose your board.</p>
+                <p style="font-size:13px; margin-bottom:8px;">Add up to four people by email. Invitations reserve a place; the admin counts as the fifth person.</p>
+                <p id="team-limit-status" style="font-size:13px; margin-bottom:8px; font-weight:600;"></p>
                 <input id="allowed-email-input" type="email" placeholder="person@example.com">
                 <button class="btn-primary" id="add-allowed-email" type="button">Add person</button>
                 <div id="allowed-email-list"></div>
@@ -1001,7 +1004,7 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
         getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
-        onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion, writeBatch
+        onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion, writeBatch, runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import {
         getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
@@ -1021,6 +1024,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
+    const INVITE_SLOT_IDS = ['1', '2', '3', '4'];
 
     let currentUser = null;
     let registering = false;
@@ -1070,6 +1074,7 @@
     const allowedEmailInput = document.getElementById('allowed-email-input');
     const addAllowedEmailBtn = document.getElementById('add-allowed-email');
     const allowedEmailList = document.getElementById('allowed-email-list');
+    const teamLimitStatus = document.getElementById('team-limit-status');
     const allowedEmailError = document.getElementById('allowed-email-error');
     const assigneeSelect = document.getElementById('task-assignee');
 
@@ -1109,8 +1114,9 @@
     function taskRef(taskId) { return doc(db, 'boards', currentBoardId, 'tasks', taskId); }
     function notesCol(taskId) { return collection(db, 'boards', currentBoardId, 'tasks', taskId, 'notes'); }
     function noteRef(taskId, noteId) { return doc(db, 'boards', currentBoardId, 'tasks', taskId, 'notes', noteId); }
-    function boardInviteRef(email) { return doc(db, 'boards', currentBoardId, 'invites', email); }
+    function boardInviteRef(email, boardId = currentBoardId) { return doc(db, 'boards', boardId, 'invites', email); }
     function globalInviteRef(email, boardId = currentBoardId) { return doc(db, 'board_invites', email, 'boards', boardId); }
+    function slotRef(slotId, boardId = currentBoardId) { return doc(db, 'boards', boardId, 'slots', slotId); }
 
     // ---------- Auth actions ----------
     signupBtn.addEventListener('click', async () => {
@@ -1321,6 +1327,10 @@
         if (isAdmin) {
             unsubscribeAllowedEmails = onSnapshot(collection(db, 'boards', boardId, 'invites'), (snap) => {
                 allowedEmailList.replaceChildren();
+                const placesUsed = snap.size + 1;
+                teamLimitStatus.textContent = `${placesUsed} of 5 places used (including the admin).`;
+                addAllowedEmailBtn.disabled = placesUsed >= 5;
+                allowedEmailInput.disabled = placesUsed >= 5;
                 snap.forEach(emailDoc => {
                     const row = document.createElement('div');
                     row.className = 'task-note-meta';
@@ -1336,6 +1346,7 @@
                             const batch = writeBatch(db);
                             batch.delete(doc(db, 'boards', boardId, 'invites', emailDoc.id));
                             batch.delete(globalInviteRef(emailDoc.id, boardId));
+                            if (emailDoc.data().slotId) batch.delete(slotRef(emailDoc.data().slotId, boardId));
                             const member = Object.entries(teamMembers).find(([, data]) => data.email === emailDoc.id);
                             if (member) batch.delete(memberRef(member[0], boardId));
                             await batch.commit();
@@ -1655,6 +1666,8 @@
 
     addAllowedEmailBtn.addEventListener('click', async () => {
         if (!isAdmin) return;
+        const boardId = currentBoardId;
+        const ownerEmail = currentUser.email.toLowerCase();
         const email = allowedEmailInput.value.trim().toLowerCase();
         if (!allowedEmailInput.validity.valid || !email || email.includes('/')) {
             allowedEmailError.textContent = 'Enter a valid email address.';
@@ -1663,24 +1676,37 @@
         addAllowedEmailBtn.disabled = true;
         allowedEmailError.textContent = '';
         try {
-            if (email === currentUser.email.toLowerCase()) {
+            if (email === ownerEmail) {
                 allowedEmailError.textContent = 'You already own this board.';
                 return;
             }
-            const batch = writeBatch(db);
-            batch.set(boardInviteRef(email), { email, addedAt: serverTimestamp() });
-            batch.set(globalInviteRef(email), {
-                boardId: currentBoardId,
-                ownerEmail: currentUser.email.toLowerCase(),
-                addedAt: serverTimestamp()
+            const result = await runTransaction(db, async transaction => {
+                const localInvite = boardInviteRef(email, boardId);
+                const slotRefs = INVITE_SLOT_IDS.map(slotId => slotRef(slotId, boardId));
+                const existingInvite = await transaction.get(localInvite);
+                const slots = await Promise.all(slotRefs.map(ref => transaction.get(ref)));
+                if (existingInvite.exists()) return 'already-invited';
+                const freeIndex = slots.findIndex(slot => !slot.exists());
+                if (freeIndex < 0) return 'full';
+                const slotId = INVITE_SLOT_IDS[freeIndex];
+                transaction.set(slotRefs[freeIndex], { email, addedAt: serverTimestamp() });
+                transaction.set(localInvite, { email, slotId, addedAt: serverTimestamp() });
+                transaction.set(globalInviteRef(email, boardId), {
+                    boardId,
+                    ownerEmail,
+                    slotId,
+                    addedAt: serverTimestamp()
+                });
+                return 'added';
             });
-            await batch.commit();
-            allowedEmailInput.value = '';
+            if (result === 'full') allowedEmailError.textContent = 'This board is full: 5 people total, including the admin.';
+            else if (result === 'already-invited') allowedEmailError.textContent = 'This email is already invited.';
+            else allowedEmailInput.value = '';
         } catch (error) {
             console.error('Could not approve email:', error);
             allowedEmailError.textContent = 'Could not approve this email.';
         } finally {
-            addAllowedEmailBtn.disabled = false;
+            addAllowedEmailBtn.disabled = allowedEmailInput.disabled;
         }
     });
 
