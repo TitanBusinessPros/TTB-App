@@ -31,7 +31,8 @@ service cloud.firestore {
       let board = get(/databases/$(database)/documents/boards/$(boardId)).data;
       return (board.get('premiumActive', false) == true
         && board.get('premiumUntil', request.time) > request.time)
-        || board.get('premiumGrantUntil', request.time) > request.time;
+        || board.get('premiumGrantUntil', request.time) > request.time
+        || board.get('premiumTrialUntil', request.time) > request.time;
     }
     function isAssignee(boardId, taskId) {
       return exists(/databases/$(database)/documents/boards/$(boardId)/tasks/$(taskId))

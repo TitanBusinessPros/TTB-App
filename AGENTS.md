@@ -16,7 +16,9 @@
   total, including its admin. Free boards can use tasks, sales pitches, and
   private notes. Premium unlocks document uploads/downloads and Google Sheets
   links. Private notes are readable only by the board admin and task assignee.
-- Paid premium uses the $12/year Stripe Payment Link recorded in README.md.
+- Paid premium uses the $12/year Stripe Payment Link and a separate one-time
+  $1/30-day trial Payment Link, both recorded in README.md. The trial checkout
+  must originate from the signed-in app so it carries `trial_<boardId>`.
   `stripeWebhook` uses `STRIPE_WEBHOOK_SECRET` in Firebase Secret Manager; no
   Stripe `sk_live` key is required. The secret also exists in `../Pumpkin.txt`
   outside this app repository. Never copy or commit that file or print its
@@ -24,8 +26,9 @@
 - `public/index.html` is the Firebase Hosting entry point. Keep its copy at
   `index.html` identical. Keep `public/sw.js` and `sw.js` identical and bump
   their cache name when releasing the app. The current cache is
-  `ttb-static-v7`.
+  `ttb-static-v8`.
 - Run `npm run test:rules` for changes to Firestore or Storage access rules.
   Deploy with `firebase deploy --only functions,firestore:rules,storage,hosting
   --project team-task-board-a1fb3` when authorized. A local source snapshot
-  is saved as `../TTB-App-current-2026-09-27.zip`.
+  is saved as `../TTB-App-current-2026-09-27-trial.zip`. The previous snapshot
+  remains at `../TTB-App-current-2026-09-27.zip`.

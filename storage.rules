@@ -17,7 +17,8 @@ service firebase.storage {
       let board = firestore.get(/databases/(default)/documents/boards/$(boardId)).data;
       return (board.get('premiumActive', false) == true
         && board.get('premiumUntil', request.time) > request.time)
-        || board.get('premiumGrantUntil', request.time) > request.time;
+        || board.get('premiumGrantUntil', request.time) > request.time
+        || board.get('premiumTrialUntil', request.time) > request.time;
     }
 
     match /boards/{boardId}/attachments/{taskId}/{fileName} {

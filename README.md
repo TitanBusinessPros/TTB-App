@@ -8,14 +8,15 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - Live app: `https://team-task-board-a1fb3.web.app`
 - GitHub repository for this app: `TitanBusinessPros/TTB-App`
 - Firebase project: `team-task-board-a1fb3`
-- Local source snapshot: `../TTB-App-current-2026-09-27.zip`. It contains the
+- Local source snapshot: `../TTB-App-current-2026-09-27-trial.zip`. It contains the
   tracked source and project instructions, without dependencies, Firebase
   credentials, or the Stripe webhook secret.
 - The verified `titanbusinesspros@gmail.com` board has a complimentary premium
   grant through **2027-09-28 03:37 UTC** (September 27 in Oklahoma).
 - The app, premium rules, grant functions, and Storage CORS are live. Emulator
-  access-rule tests passed. A correctly signed non-payment webhook probe passed;
-  delivery from Stripe and a real payment have not yet been verified. Confirm
+  access-rule tests and a signed $1/annual webhook test passed. A correctly
+  signed non-payment probe reached the live webhook. Delivery from Stripe and
+  a real payment have not yet been verified. Confirm
   the Stripe webhook destination URL, four selected events, and matching
   signing secret before relying on automatic paid activation.
 
@@ -35,6 +36,9 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - A paid board unlocks document uploads and downloads and Google Sheets links
   for its admin and invited members. The Sheet's owner still controls view and
   edit permissions in Google Drive.
+- The one-time $1 option gives the same premium features for 30 days with no
+  automatic renewal. The $12 option is a yearly subscription. Both cover the
+  board admin and up to four invited people.
 - The verified `titanbusinesspros@gmail.com` account can open **Team Members**
   and add email addresses to **One-year premium grants**. Each grant unlocks
   premium for that email owner's board and its invited members for one calendar
@@ -71,30 +75,42 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v7`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v8`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup
 
-Premium is $12 USD **billed yearly** ($1 per month equivalent) for one board
-with up to five people total. The app opens the shared Stripe Payment Link with
-a `client_reference_id` for the signed-in admin's board. Stripe returns this ID
-in `checkout.session.completed`, allowing the webhook to credit the right board.
-When someone opens the bare public link directly, the webhook attempts to match
-the checkout email to an already-registered, verified board admin. Customers
-must use the same email address they use to sign in to their board.
+Premium has two checkout options for a board with up to five people total:
 
-1. Use the existing annual $12 Payment Link
-   `https://buy.stripe.com/bJe14o8Jz5ok85Q0oT7AI10`. Verify in Stripe that
-   it is a yearly recurring subscription without a trial.
+- **Try premium:** one-time $1 USD payment for 30 days of all premium features,
+  with no automatic renewal. Link:
+  `https://buy.stripe.com/4gMfZi8Jz9EA0DodbF7AI11`.
+- **Premium for the year:** $12 USD billed yearly ($1 per month equivalent).
+  Link: `https://buy.stripe.com/bJe14o8Jz5ok85Q0oT7AI10`.
+
+The app opens either Payment Link with a `client_reference_id` for the signed-in
+admin's board. Trial checkouts use `trial_<boardId>` and must be started from
+the signed-in app; opening the bare $1 link directly cannot identify the board.
+Stripe returns the reference in the completed Checkout Session. The webhook
+also checks the paid amount and the checkout email against the verified board
+owner. A recorded trial checkout cannot extend access twice if Stripe retries
+the event. A separate paid $1 checkout adds another 30 days. For the annual
+link, the webhook can also match a bare-link purchase by an existing, verified
+board admin's checkout email. Customers must use their board login email.
+
+1. Verify in Stripe that the $1 link is a one-time $1 USD payment and the $12
+   link is a yearly recurring subscription without a trial. The public Stripe
+   checkout page does not expose those account-side settings.
 2. Create a Stripe webhook endpoint at
    `https://us-central1-team-task-board-a1fb3.cloudfunctions.net/stripeWebhook`.
-   Select only these events: `checkout.session.completed`, `invoice.paid`,
+   Select these events: `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`, `invoice.paid`,
    `customer.subscription.updated`, and `customer.subscription.deleted`.
+   The async payment event handles delayed payment methods if either link
+   offers them.
    Stripe uses invoice records behind the scenes for automatic yearly renewal;
    this does not require emailing an invoice to the customer. Configure the
-   Payment Link to accept cards only; delayed payment methods require an extra
-   success event. Note
+   Payment Link to accept cards only if you do not want delayed methods. Note
    its `whsec_...` signing secret.
 3. The webhook signing secret from `Pumpkin.txt` is already stored in Firebase
    Secret Manager as `STRIPE_WEBHOOK_SECRET`. Verify it belongs to the endpoint
@@ -121,7 +137,7 @@ must use the same email address they use to sign in to their board.
    failed webhook deliveries. Keep the webhook endpoint enabled for renewals,
    failed payments, and cancellations.
 
-The premium app, functions, and rules are deployed. Stripe must send the four
+The premium app, functions, and rules are deployed. Stripe must send the five
 events above to the webhook URL for payments to unlock a board. A newly created
 Stripe webhook destination has its own signing secret; update
 `STRIPE_WEBHOOK_SECRET` if that secret differs from the one already stored.
@@ -132,6 +148,11 @@ To run the access-control tests locally:
 npm ci
 npm run test:rules
 ```
+
+On Windows, run `powershell -ExecutionPolicy Bypass -File
+test/run-trial-webhook.ps1` to exercise the signed $1 webhook, retries, and
+annual checkout in local emulators. The runner temporarily writes a fake
+signing secret and removes it afterward; it does not make a real purchase.
 
 The npm packages are development dependencies for the Firebase emulator tests;
 the published site loads the Firebase Web SDK directly from Google's CDN.

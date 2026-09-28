@@ -106,6 +106,9 @@ try {
   await assertFails(updateDoc(board(ownerA, 'owner-a'), {
     premiumGrantUntil: Timestamp.fromMillis(Date.now() + 86400000)
   }));
+  await assertFails(updateDoc(board(ownerA, 'owner-a'), {
+    premiumTrialUntil: Timestamp.fromMillis(Date.now() + 86400000)
+  }));
   await assertFails(setDoc(doc(ownerA, 'premium_grants', 'owner-a@example.com'), {
     email: 'owner-a@example.com', expiresAt: Timestamp.fromMillis(Date.now() + 86400000)
   }));
@@ -139,6 +142,21 @@ try {
   });
   await assertFails(getDoc(sheet(member, 'owner-a')));
   await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), {
+      premiumTrialUntil: Timestamp.fromMillis(Date.now() + 30 * 86400000)
+    });
+  });
+  await assertSucceeds(getDoc(sheet(member, 'owner-a')));
+  await assertSucceeds(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), {
+      premiumTrialUntil: Timestamp.fromMillis(Date.now() - 86400000)
+    });
+  });
+  await assertFails(getDoc(sheet(member, 'owner-a')));
+  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertFails(memberContext.storage(bucket).ref('boards/owner-a/attachments/task-a/new.png').putString('New', 'raw', { customMetadata: { uploaderUid: 'member-a' } }));
 
   await env.withSecurityRulesDisabled(async context => {
@@ -168,7 +186,7 @@ try {
   await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).delete());
   await assertSucceeds(grantInvite('replacement@example.com', '1'));
 
-  console.log('Five-person limit, board isolation, private notes, and paid/granted premium access rules passed.');
+  console.log('Five-person limit, board isolation, private notes, and paid/granted/trial premium access rules passed.');
 } finally {
   await env.cleanup();
 }

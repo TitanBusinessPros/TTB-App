@@ -582,6 +582,11 @@
         }
 
         #premium-modal { z-index: 1300; }
+        .trial-offer { padding: 14px 18px; background: #e7f3ff; border-left: 4px solid #135da9; border-radius: 6px; }
+        .premium-options { display: grid; gap: 12px; margin: 18px 0; }
+        .premium-option { padding: 14px; border: 1px solid #d6dee8; border-radius: 8px; }
+        .premium-option h3 { margin-bottom: 6px; }
+        .premium-option p { margin-bottom: 10px; }
 
         .modal-content {
             background: white;
@@ -703,6 +708,7 @@
                 <h1>Keep your team moving.</h1>
                 <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, and note together.</p>
                 <p>Free to use for up to 5 people: you and four teammates. Premium adds document uploads and downloads and Google Sheets links.</p>
+                <p class="trial-offer"><strong>Not sure yet?</strong> Try every premium feature for 30 days for just $1.</p>
                 <ul>
                     <li>See work move from To Do to Done</li>
                     <li>Give each teammate access to your board</li>
@@ -791,13 +797,22 @@
         <div class="modal-header"><h2 id="premium-title">Premium features</h2><button type="button" id="close-premium" aria-label="Close premium features">&times;</button></div>
         <div class="modal-body">
             <p>The task board is free to use for up to 5 people, including the admin.</p>
-            <p style="font-size:18px;font-weight:600">Please Subscribe for only $1 a month to unlock premium features!</p>
-            <p>Billed $12 once a year. Unlock document uploads, document viewing and downloads, and Google Sheets links for your board and up to 5 total team members.</p>
+            <div class="premium-options">
+                <div class="premium-option">
+                    <h3>Try premium for just $1</h3>
+                    <p>Not sure yet? Try all premium features for 30 days for only a buck: document uploads and downloads, plus Google Sheets links for your board and up to 5 people total. One-time payment, no automatic renewal.</p>
+                    <button class="btn-primary" type="button" id="try-premium">Try premium for $1</button>
+                </div>
+                <div class="premium-option">
+                    <h3>Premium for the year</h3>
+                    <p>Get the same premium features for $12 billed once a year ($1 a month equivalent).</p>
+                    <button class="btn-secondary" type="button" id="subscribe-premium">Subscribe for $12/year</button>
+                </div>
+            </div>
             <p>At checkout, use the same email address you use to sign in to this board.</p>
             <p>For more team members, call or text us anytime! <a href="tel:+14059987979">405-998-7979</a> (<a href="sms:+14059987979">text us</a>).</p>
             <p id="premium-feedback" role="alert"></p>
         </div>
-        <div class="modal-footer"><button class="btn-primary" type="button" id="subscribe-premium">Subscribe for $12/year</button></div>
     </div>
 </div>
 
@@ -1104,6 +1119,7 @@
     let notesTaskId = null;
     let unsubscribeBoard = null;
     let premiumActive = false;
+    let currentBoardPremiumData = null;
 
     // ---------- DOM refs ----------
     const loginScreen = document.getElementById('login-screen');
@@ -1175,6 +1191,7 @@
     const premiumModal = document.getElementById('premium-modal');
     const premiumFeedback = document.getElementById('premium-feedback');
     const subscribePremiumBtn = document.getElementById('subscribe-premium');
+    const tryPremiumBtn = document.getElementById('try-premium');
     const taskFormSheetInput = document.getElementById('task-form-sheet-url');
 
     function isPlatformAdmin() {
@@ -1245,6 +1262,7 @@
     function openPremiumModal() {
         premiumFeedback.textContent = isAdmin ? '' : 'Ask this board’s admin to subscribe. One subscription covers the whole team.';
         subscribePremiumBtn.hidden = !isAdmin;
+        tryPremiumBtn.hidden = !isAdmin;
         premiumModal.style.display = 'flex';
         document.getElementById('close-premium').focus();
     }
@@ -1253,21 +1271,42 @@
         openPremiumModal();
         return false;
     }
+    function boardHasPremium(data) {
+        const now = Date.now();
+        return Boolean((data.premiumActive === true && data.premiumUntil?.toMillis() > now)
+            || data.premiumGrantUntil?.toMillis() > now
+            || data.premiumTrialUntil?.toMillis() > now);
+    }
+    function refreshPremiumAccess() {
+        if (!currentBoardPremiumData) return;
+        const wasActive = premiumActive;
+        premiumActive = boardHasPremium(currentBoardPremiumData);
+        taskFormSheetInput.readOnly = !premiumActive;
+        if (!premiumActive) taskFormSheetInput.value = '';
+        if (wasActive !== premiumActive) {
+            renderAllTasks(Object.values(currentTasksById).map(task => ({ id: task.id, data: () => task })));
+        }
+    }
+    setInterval(refreshPremiumAccess, 60 * 1000);
     document.getElementById('close-premium').addEventListener('click', () => { premiumModal.style.display = 'none'; });
-    subscribePremiumBtn.addEventListener('click', async () => {
+    async function openPremiumCheckout(plan) {
         if (!isAdmin || !currentUser) return;
         subscribePremiumBtn.disabled = true;
+        tryPremiumBtn.disabled = true;
         premiumFeedback.textContent = 'Opening secure checkout…';
         try {
-            const result = await httpsCallable(functions, 'createPremiumCheckout')();
+            const result = await httpsCallable(functions, 'createPremiumCheckout')({ plan });
             if (!result.data?.url) throw new Error('No checkout link was returned.');
             window.location.assign(result.data.url);
         } catch (error) {
             console.error('Could not open checkout:', error);
             premiumFeedback.textContent = 'Checkout is unavailable right now. Please try again later.';
             subscribePremiumBtn.disabled = false;
+            tryPremiumBtn.disabled = false;
         }
-    });
+    }
+    subscribePremiumBtn.addEventListener('click', () => openPremiumCheckout('annual'));
+    tryPremiumBtn.addEventListener('click', () => openPremiumCheckout('trial'));
     taskFormSheetInput.addEventListener('focus', () => { if (!premiumActive) { taskFormSheetInput.blur(); openPremiumModal(); } });
     attachmentInput.addEventListener('click', event => { if (!premiumActive) { event.preventDefault(); openPremiumModal(); } });
 
@@ -1462,12 +1501,9 @@
             premiumGrantsAdmin.hidden = !isPlatformAdmin();
             unsubscribeBoard = onSnapshot(boardRef(boardId), snapshot => {
                 const data = snapshot.data() || {};
-                premiumActive = (data.premiumActive === true && data.premiumUntil?.toMillis() > Date.now())
-                    || data.premiumGrantUntil?.toMillis() > Date.now();
-                taskFormSheetInput.readOnly = !premiumActive;
-                if (!premiumActive) taskFormSheetInput.value = '';
-                renderAllTasks(Object.values(currentTasksById).map(task => ({ id: task.id, data: () => task })));
-            }, error => { console.error('Could not load subscription:', error); premiumActive = false; });
+                currentBoardPremiumData = data;
+                refreshPremiumAccess();
+            }, error => { console.error('Could not load subscription:', error); currentBoardPremiumData = null; premiumActive = false; });
             renderAllTasks([]);
             startListening();
         } catch (error) {
@@ -1488,6 +1524,7 @@
         unsubscribeAllowedEmails = null;
         unsubscribeBoard = null;
         premiumActive = false;
+        currentBoardPremiumData = null;
         premiumModal.style.display = 'none';
         closeTaskView();
         taskModal.style.display = 'none';

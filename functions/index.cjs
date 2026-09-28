@@ -12,18 +12,21 @@ initializeApp();
 const db = getFirestore();
 const webhookKey = defineSecret('STRIPE_WEBHOOK_SECRET');
 const platformAdminEmail = 'titanbusinesspros@gmail.com';
-const paymentLinkUrl = 'https://buy.stripe.com/bJe14o8Jz5ok85Q0oT7AI10';
+const annualPaymentLinkUrl = 'https://buy.stripe.com/bJe14o8Jz5ok85Q0oT7AI10';
+const trialPaymentLinkUrl = 'https://buy.stripe.com/4gMfZi8Jz9EA0DodbF7AI11';
 const boardDoc = uid => db.collection('boards').doc(uid);
 const premiumGrantDoc = email => db.collection('premium_grants').doc(email);
 const subscriptionDoc = id => db.collection('stripe_subscriptions').doc(id);
 const paidPeriodDoc = id => db.collection('stripe_paid_periods').doc(id);
+const trialCheckoutDoc = id => db.collection('stripe_trial_checkouts').doc(id);
 const acceptedEvents = new Set([
   'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
   'invoice.paid',
   'customer.subscription.updated',
   'customer.subscription.deleted',
 ]);
-const stripeId = value => typeof value === 'string' ? value : value?.id;
+const stripeId = value => typeof value === 'string' ? value : value?.id || null;
 const validBoardId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 const matchesAnnualPrice = subscription => subscription.items?.data?.some(item =>
   item.price?.unit_amount === 1200
@@ -133,17 +136,28 @@ exports.createPremiumCheckout = onCall({ region: 'us-central1' }, async request 
   if (!board.exists || board.data().ownerUid !== user.uid) {
     throw new HttpsError('failed-precondition', 'Your board is not ready.');
   }
+  const plan = request.data?.plan || 'annual';
+  if (plan !== 'annual' && plan !== 'trial') {
+    throw new HttpsError('invalid-argument', 'Choose a valid premium option.');
+  }
   if ((board.data().premiumActive && board.data().premiumUntil?.toMillis() > Date.now())
     || board.data().premiumGrantUntil?.toMillis() > Date.now()) {
     throw new HttpsError('already-exists', 'This board already has premium access.');
   }
-  return { url: `${paymentLinkUrl}?client_reference_id=${encodeURIComponent(user.uid)}` };
+  const link = plan === 'trial' ? trialPaymentLinkUrl : annualPaymentLinkUrl;
+  const reference = plan === 'trial' ? `trial_${user.uid}` : user.uid;
+  return { url: `${link}?client_reference_id=${encodeURIComponent(reference)}` };
 });
 
-async function boardForCheckout(session) {
+async function boardForCheckout(session, plan = 'annual') {
   const email = session.customer_details?.email?.trim().toLowerCase();
   if (!email) return null;
-  let boardId = validBoardId(session.client_reference_id) ? session.client_reference_id : null;
+  const reference = plan === 'trial'
+    ? (typeof session.client_reference_id === 'string' && session.client_reference_id.startsWith('trial_')
+      ? session.client_reference_id.slice(6) : null)
+    : session.client_reference_id;
+  if (plan === 'trial' && !validBoardId(reference)) return null;
+  let boardId = validBoardId(reference) ? reference : null;
   if (boardId) {
     const board = await boardDoc(boardId).get();
     if (board.exists && board.data().ownerUid === boardId && board.data().ownerEmail === email) return boardId;
@@ -162,6 +176,10 @@ async function boardForCheckout(session) {
 }
 
 async function handleCheckout(session, event) {
+  if (session.mode === 'payment') {
+    await handleTrialCheckout(session, event);
+    return;
+  }
   if (session.mode !== 'subscription' || session.payment_status !== 'paid'
     || session.currency !== 'usd' || session.amount_subtotal !== 1200
     || !stripeId(session.payment_link) || !stripeId(session.subscription)) return;
@@ -189,6 +207,33 @@ async function handleCheckout(session, event) {
       stripeStatus: 'active',
       stripeEventCreated: event.created,
     });
+  });
+}
+
+async function handleTrialCheckout(session, event) {
+  if (session.payment_status !== 'paid' || session.currency !== 'usd'
+    || session.amount_subtotal !== 100 || session.amount_total < 100
+    || !stripeId(session.payment_link) || !stripeId(session.payment_intent)
+    || typeof session.id !== 'string' || !session.id.startsWith('cs_live_')) return;
+  const boardId = await boardForCheckout(session, 'trial');
+  if (!boardId) {
+    console.warn('Paid $1 checkout has no verified matching board', event.id);
+    return;
+  }
+  const checkout = trialCheckoutDoc(session.id);
+  const board = boardDoc(boardId);
+  await db.runTransaction(async tx => {
+    const [boardSnapshot, checkoutSnapshot] = await Promise.all([tx.get(board), tx.get(checkout)]);
+    if (!boardSnapshot.exists || boardSnapshot.data().ownerUid !== boardId || checkoutSnapshot.exists) return;
+    const paidAt = event.created * 1000;
+    const currentTrialUntil = boardSnapshot.data().premiumTrialUntil?.toMillis() || 0;
+    const expiresAt = Timestamp.fromMillis(Math.max(paidAt, currentTrialUntil) + 30 * 86400000);
+    tx.create(checkout, {
+      boardId, paymentLinkId: stripeId(session.payment_link),
+      paymentIntentId: stripeId(session.payment_intent),
+      paidAt: Timestamp.fromMillis(paidAt), expiresAt,
+    });
+    tx.update(board, { premiumTrialUntil: expiresAt });
   });
 }
 
@@ -255,7 +300,8 @@ exports.stripeWebhook = onRequest(
     if (!acceptedEvents.has(event.type)) { response.status(200).send('Ignored'); return; }
     try {
       const object = event.data.object;
-      if (event.type === 'checkout.session.completed') await handleCheckout(object, event);
+      if (event.type === 'checkout.session.completed'
+        || event.type === 'checkout.session.async_payment_succeeded') await handleCheckout(object, event);
       else if (event.type === 'invoice.paid') await handleInvoicePaid(object, event);
       else await handleSubscriptionChange(object, event);
       response.status(200).send('OK');
