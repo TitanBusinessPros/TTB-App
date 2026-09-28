@@ -22,7 +22,8 @@
   `stripeWebhook` uses `STRIPE_WEBHOOK_SECRET` in Firebase Secret Manager; no
   Stripe `sk_live` key is required. The secret also exists in `../Pumpkin.txt`
   outside this app repository. Never copy or commit that file or print its
-  contents. Stripe Dashboard delivery and a real payment still need checking.
+  contents. The owner confirmed that the Stripe destination points to the
+  webhook. A real payment and matching Stripe delivery still need checking.
 - `public/index.html` is the Firebase Hosting entry point. Keep its copy at
   `index.html` identical. Keep `public/sw.js` and `sw.js` identical and bump
   their cache name when releasing the app. The current cache is

@@ -15,10 +15,10 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   grant through **2027-09-28 03:37 UTC** (September 27 in Oklahoma).
 - The app, premium rules, grant functions, and Storage CORS are live. Emulator
   access-rule tests and a signed $1/annual webhook test passed. A correctly
-  signed non-payment probe reached the live webhook. Delivery from Stripe and
-  a real payment have not yet been verified. Confirm
-  the Stripe webhook destination URL, four selected events, and matching
-  signing secret before relying on automatic paid activation.
+  signed non-payment probe reached the live webhook. The project owner confirmed
+  that the Stripe destination points to this webhook. Delivery from Stripe and
+  a real payment have not yet been verified; check the first payment in Stripe
+  and the board's premium status before relying on automatic paid activation.
 
 ## Access
 
@@ -103,11 +103,10 @@ board admin's checkout email. Customers must use their board login email.
    checkout page does not expose those account-side settings.
 2. Create a Stripe webhook endpoint at
    `https://us-central1-team-task-board-a1fb3.cloudfunctions.net/stripeWebhook`.
-   Select these events: `checkout.session.completed`,
-   `checkout.session.async_payment_succeeded`, `invoice.paid`,
+   Select `checkout.session.completed`, `invoice.paid`,
    `customer.subscription.updated`, and `customer.subscription.deleted`.
-   The async payment event handles delayed payment methods if either link
-   offers them.
+   Add `checkout.session.async_payment_succeeded` if either Payment Link offers
+   delayed payment methods; it handles those payments after they succeed.
    Stripe uses invoice records behind the scenes for automatic yearly renewal;
    this does not require emailing an invoice to the customer. Configure the
    Payment Link to accept cards only if you do not want delayed methods. Note
@@ -137,9 +136,9 @@ board admin's checkout email. Customers must use their board login email.
    failed webhook deliveries. Keep the webhook endpoint enabled for renewals,
    failed payments, and cancellations.
 
-The premium app, functions, and rules are deployed. Stripe must send the five
-events above to the webhook URL for payments to unlock a board. A newly created
-Stripe webhook destination has its own signing secret; update
+The premium app, functions, and rules are deployed. Stripe must send the core
+events above to the webhook URL for payments and renewals to unlock a board. A
+newly created Stripe webhook destination has its own signing secret; update
 `STRIPE_WEBHOOK_SECRET` if that secret differs from the one already stored.
 
 To run the access-control tests locally:
