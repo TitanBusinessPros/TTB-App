@@ -3,6 +3,22 @@
 A single-page team task board backed by Firebase Authentication, Cloud Firestore,
 Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html`.
 
+## Current local version
+
+- Live app: `https://team-task-board-a1fb3.web.app`
+- GitHub repository for this app: `TitanBusinessPros/TTB-App`
+- Firebase project: `team-task-board-a1fb3`
+- Local source snapshot: `../TTB-App-current-2026-09-27.zip`. It contains the
+  tracked source and project instructions, without dependencies, Firebase
+  credentials, or the Stripe webhook secret.
+- The verified `titanbusinesspros@gmail.com` board has a complimentary premium
+  grant through **2027-09-28 03:37 UTC** (September 27 in Oklahoma).
+- The app, premium rules, grant functions, and Storage CORS are live. Emulator
+  access-rule tests passed. A correctly signed non-payment webhook probe passed;
+  delivery from Stripe and a real payment have not yet been verified. Confirm
+  the Stripe webhook destination URL, four selected events, and matching
+  signing secret before relying on automatic paid activation.
+
 ## Access
 
 - Anyone may sign up with email and password. After verifying their email, they
@@ -29,6 +45,8 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   if a separate complimentary grant is removed.
 - Task notes are stored under `boards/{boardId}/tasks/{taskId}/notes` and only
   the board admin and current assignee may read, add, or delete them.
+- Each task includes a description and sales pitch. The sign-in page and board
+  share the Titan Business Pros contact footer and Facebook link.
 
 ## Install the app
 
@@ -51,6 +69,10 @@ is needed.
 Storage rules read Firestore invitations, so the Firebase Storage service agent
 must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
+The same change to the web app belongs in both `public/index.html` and
+`index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v7`.
+The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup
 
@@ -79,11 +101,13 @@ must use the same email address they use to sign in to their board.
    above. The webhook verifies Stripe's signature and uses event data; no Stripe
    API key is needed. If the signing secret belongs to a different endpoint,
    replace `STRIPE_WEBHOOK_SECRET` with the correct one.
-4. Install server dependencies with `npm ci --prefix functions`. Run
-   `./scripts/migrate-premium.ps1` as a dry run, then run it with `-Apply` while
-   deploying. The migration moves any old Sheet links out of readable task
-   documents, removes old file URLs, and revokes their download tokens.
-5. Apply Storage CORS using
+4. Install server dependencies with `npm ci --prefix functions`. The premium
+   migration has already been applied to the existing task attachment. For a
+   fresh project, run `./scripts/migrate-premium.ps1` as a dry run, then run it
+   with `-Apply` before releasing premium rules. The migration moves any old
+   Sheet links out of readable task documents, removes old file URLs, and
+   revokes their download tokens.
+5. Storage CORS has already been applied. For a fresh bucket, apply it using
    `gcloud storage buckets update gs://team-task-board-a1fb3.firebasestorage.app --cors-file=storage-cors.json`.
    Then deploy functions, Firestore rules, Storage rules, and Hosting:
 
