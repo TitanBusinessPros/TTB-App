@@ -65,7 +65,25 @@
             max-width: 1400px;
             margin: 0 auto;
             width: 100%;
+            flex: 1;
         }
+
+        .site-footer {
+            width: 100%;
+            max-width: 1400px;
+            margin: 32px auto 0;
+            padding: 20px 12px 4px;
+            border-top: 1px solid rgba(44, 62, 80, 0.18);
+            color: #35506b;
+            text-align: center;
+            display: grid;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .site-footer a { color: #135da9; }
+        .site-footer a:hover { text-decoration: underline; }
+        .site-footer .footer-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .site-footer .footer-facebook { font-size: 24px; line-height: 1; }
 
         /* ---------- Login screen ---------- */
         #login-screen {
@@ -758,6 +776,15 @@
         </div>
     </div>
 </div>
+
+<footer class="site-footer">
+    <strong>Titan Business Pros</strong>
+    <div class="footer-contact"><a href="tel:+14059987979">405-998-7979</a><span aria-hidden="true">|</span><a href="mailto:titanbusinesspros@gmail.com">titanbusinesspros@gmail.com</a></div>
+    <div><a href="https://www.oklahoma.marketing" target="_blank" rel="noopener noreferrer">www.oklahoma.marketing</a></div>
+    <div>Oklahoma City, OK</div>
+    <div><a class="footer-facebook" href="https://www.facebook.com/TitanBusinessPros/" target="_blank" rel="noopener noreferrer" aria-label="Titan Business Pros on Facebook"><i class="fa-brands fa-facebook" aria-hidden="true"></i></a></div>
+    <div>&copy; 2026 Titan Business Pros LLC. All rights reserved.</div>
+</footer>
 
 <div class="modal" id="premium-modal" role="dialog" aria-modal="true" aria-labelledby="premium-title">
     <div class="modal-content" style="max-width:440px">
