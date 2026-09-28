@@ -24,6 +24,9 @@ Open the live site on a phone or computer and choose **Install App**. On browser
 that do not show an install prompt, use **Install app** or **Add to Home Screen**
 from the browser menu. The icon and favicon come from `favicon.zip` in the local
 workspace. An internet connection is required to load and sync board data.
+When an update is ready, an in-app **Get latest version** button activates it
+and reloads the page. Increment `CACHE_NAME` in both copies of `sw.js` with
+each app release so open tabs can detect the new version.
 
 ## Deployment
 
