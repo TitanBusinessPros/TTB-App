@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ttb-static-v4';
+const CACHE_NAME = 'ttb-static-v5';
 const STATIC_FILES = [
   './site.webmanifest',
   './icons/favicon.ico',

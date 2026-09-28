@@ -563,6 +563,8 @@
             justify-content: center;
         }
 
+        #premium-modal { z-index: 1300; }
+
         .modal-content {
             background: white;
             border-radius: 10px;
@@ -681,7 +683,8 @@
         <div class="landing-layout">
             <div class="landing-copy">
                 <h1>Keep your team moving.</h1>
-                <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, note, sheet, and document together.</p>
+                <p>Create your own private task board, invite the people you work with, and keep every assignment, sales pitch, and note together.</p>
+                <p>Free to use for up to 5 people: you and four teammates. Premium adds document uploads and downloads and Google Sheets links.</p>
                 <ul>
                     <li>See work move from To Do to Done</li>
                     <li>Give each teammate access to your board</li>
@@ -758,12 +761,13 @@
 
 <div class="modal" id="premium-modal" role="dialog" aria-modal="true" aria-labelledby="premium-title">
     <div class="modal-content" style="max-width:440px">
-        <div class="modal-header"><h2 id="premium-title">Premium features</h2><button type="button" id="close-premium">&times;</button></div>
+        <div class="modal-header"><h2 id="premium-title">Premium features</h2><button type="button" id="close-premium" aria-label="Close premium features">&times;</button></div>
         <div class="modal-body">
+            <p>The task board is free to use for up to 5 people, including the admin.</p>
             <p style="font-size:18px;font-weight:600">Please Subscribe for only $1 a month to unlock premium features!</p>
             <p>Billed $12 once a year. Unlock document uploads, document viewing and downloads, and Google Sheets links for your board and up to 5 total team members.</p>
             <p>At checkout, use the same email address you use to sign in to this board.</p>
-            <p>For more team members, <a href="mailto:titanbusinesspros@gmail.com?subject=Titan%20Team%20Task%20Board%20larger%20team">contact us directly</a>.</p>
+            <p>For more team members, call or text us anytime! <a href="tel:+14059987979">405-998-7979</a> (<a href="sms:+14059987979">text us</a>).</p>
             <p id="premium-feedback" role="alert"></p>
         </div>
         <div class="modal-footer"><button class="btn-primary" type="button" id="subscribe-premium">Subscribe for $12/year</button></div>
@@ -1135,6 +1139,7 @@
         premiumFeedback.textContent = isAdmin ? '' : 'Ask this board’s admin to subscribe. One subscription covers the whole team.';
         subscribePremiumBtn.hidden = !isAdmin;
         premiumModal.style.display = 'flex';
+        document.getElementById('close-premium').focus();
     }
     function requirePremium() {
         if (premiumActive) return true;
