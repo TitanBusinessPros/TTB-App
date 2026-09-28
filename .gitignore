@@ -6,3 +6,6 @@ ui-debug.log
 firestore-debug.log
 storage-debug.log
 *-debug.log
+functions/.env*
+functions/.secret.local
+.tmpconfig/

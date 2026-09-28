@@ -756,6 +756,20 @@
     </div>
 </div>
 
+<div class="modal" id="premium-modal" role="dialog" aria-modal="true" aria-labelledby="premium-title">
+    <div class="modal-content" style="max-width:440px">
+        <div class="modal-header"><h2 id="premium-title">Premium features</h2><button type="button" id="close-premium">&times;</button></div>
+        <div class="modal-body">
+            <p style="font-size:18px;font-weight:600">Please Subscribe for only $1 a month to unlock premium features!</p>
+            <p>Billed $12 once a year. Unlock document uploads, document viewing and downloads, and Google Sheets links for your board and up to 5 total team members.</p>
+            <p>At checkout, use the same email address you use to sign in to this board.</p>
+            <p>For more team members, <a href="mailto:titanbusinesspros@gmail.com?subject=Titan%20Team%20Task%20Board%20larger%20team">contact us directly</a>.</p>
+            <p id="premium-feedback" role="alert"></p>
+        </div>
+        <div class="modal-footer"><button class="btn-primary" type="button" id="subscribe-premium">Subscribe for $12/year</button></div>
+    </div>
+</div>
+
 <!-- Team Members Modal -->
 <div class="modal" id="team-modal">
     <div class="modal-content">
@@ -1007,8 +1021,9 @@
         onSnapshot, setDoc, getDoc, serverTimestamp, query, orderBy, arrayUnion, writeBatch, runTransaction
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import {
-        getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+        getStorage, ref as storageRef, uploadBytes, getBlob, deleteObject
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDMOl1l9z_OeoJwKBjk5TSU6pZRuk5IXV0",
@@ -1024,6 +1039,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
+    const functions = getFunctions(app, 'us-central1');
     const INVITE_SLOT_IDS = ['1', '2', '3', '4'];
 
     let currentUser = null;
@@ -1045,6 +1061,8 @@
     let viewedTaskId = null;
     let unsubscribeNotes = null;
     let notesTaskId = null;
+    let unsubscribeBoard = null;
+    let premiumActive = false;
 
     // ---------- DOM refs ----------
     const loginScreen = document.getElementById('login-screen');
@@ -1108,6 +1126,38 @@
     const attachmentInput = document.getElementById('task-attachment-input');
     const taskModalAttachments = document.getElementById('task-modal-attachments');
     const attachmentUploadStatus = document.getElementById('attachment-upload-status');
+    const premiumModal = document.getElementById('premium-modal');
+    const premiumFeedback = document.getElementById('premium-feedback');
+    const subscribePremiumBtn = document.getElementById('subscribe-premium');
+    const taskFormSheetInput = document.getElementById('task-form-sheet-url');
+
+    function openPremiumModal() {
+        premiumFeedback.textContent = isAdmin ? '' : 'Ask this board’s admin to subscribe. One subscription covers the whole team.';
+        subscribePremiumBtn.hidden = !isAdmin;
+        premiumModal.style.display = 'flex';
+    }
+    function requirePremium() {
+        if (premiumActive) return true;
+        openPremiumModal();
+        return false;
+    }
+    document.getElementById('close-premium').addEventListener('click', () => { premiumModal.style.display = 'none'; });
+    subscribePremiumBtn.addEventListener('click', async () => {
+        if (!isAdmin || !currentUser) return;
+        subscribePremiumBtn.disabled = true;
+        premiumFeedback.textContent = 'Opening secure checkout…';
+        try {
+            const result = await httpsCallable(functions, 'createPremiumCheckout')();
+            if (!result.data?.url) throw new Error('No checkout link was returned.');
+            window.location.assign(result.data.url);
+        } catch (error) {
+            console.error('Could not open checkout:', error);
+            premiumFeedback.textContent = 'Checkout is unavailable right now. Please try again later.';
+            subscribePremiumBtn.disabled = false;
+        }
+    });
+    taskFormSheetInput.addEventListener('focus', () => { if (!premiumActive) { taskFormSheetInput.blur(); openPremiumModal(); } });
+    attachmentInput.addEventListener('click', event => { if (!premiumActive) { event.preventDefault(); openPremiumModal(); } });
 
     function boardRef(boardId = currentBoardId) { return doc(db, 'boards', boardId); }
     function memberRef(uid, boardId = currentBoardId) { return doc(db, 'boards', boardId, 'members', uid); }
@@ -1297,6 +1347,13 @@
             boardPicker.value = boardId;
             userBadge.textContent = `Signed in as ${currentUser.email}${isAdmin ? ' (admin)' : ''}`;
             adminAllowlist.hidden = !isAdmin;
+            unsubscribeBoard = onSnapshot(boardRef(boardId), snapshot => {
+                const data = snapshot.data() || {};
+                premiumActive = data.premiumActive === true && data.premiumUntil?.toMillis() > Date.now();
+                taskFormSheetInput.readOnly = !premiumActive;
+                if (!premiumActive) taskFormSheetInput.value = '';
+                renderAllTasks(Object.values(currentTasksById).map(task => ({ id: task.id, data: () => task })));
+            }, error => { console.error('Could not load subscription:', error); premiumActive = false; });
             renderAllTasks([]);
             startListening();
         } catch (error) {
@@ -1311,9 +1368,13 @@
         if (unsubscribeTasks) unsubscribeTasks();
         if (unsubscribeUsers) unsubscribeUsers();
         if (unsubscribeAllowedEmails) unsubscribeAllowedEmails();
+        if (unsubscribeBoard) unsubscribeBoard();
         unsubscribeTasks = null;
         unsubscribeUsers = null;
         unsubscribeAllowedEmails = null;
+        unsubscribeBoard = null;
+        premiumActive = false;
+        premiumModal.style.display = 'none';
         closeTaskView();
         taskModal.style.display = 'none';
         teamModal.style.display = 'none';
@@ -1486,16 +1547,12 @@
             </div>
         `;
 
-        const sheetUrl = normalizeSheetUrl(task.sheetUrl || '');
-        if (sheetUrl) {
-            const link = document.createElement('a');
-            link.href = sheetUrl;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = 'Open Google Sheet';
-            link.addEventListener('click', (event) => event.stopPropagation());
-            el.querySelector('.task-sheet').appendChild(link);
-        }
+        const sheetButton = document.createElement('button');
+        sheetButton.type = 'button';
+        sheetButton.className = 'btn-secondary';
+        sheetButton.textContent = 'Google Sheet';
+        sheetButton.addEventListener('click', event => { event.stopPropagation(); openSheet(task.id); });
+        el.querySelector('.task-sheet').appendChild(sheetButton);
 
         el.querySelector('.read-more-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1577,7 +1634,8 @@
         document.getElementById('task-assignee').value = task ? task.assignee : (currentUser ? currentUser.uid : '');
         updateTaskFormNoteAccess();
         document.getElementById('task-due').value = task && task.dueDate ? task.dueDate : '';
-        document.getElementById('task-form-sheet-url').value = task ? task.sheetUrl || '' : '';
+        taskFormSheetInput.value = '';
+        if (task && premiumActive) loadSheet(task.id, url => { if (editingTaskId === task.id) taskFormSheetInput.value = url; });
         taskModal.dataset.column = task ? task.column : 'todo';
 
         pendingFiles = [];
@@ -1751,6 +1809,22 @@
         viewTaskModal.style.display = 'flex';
     }
 
+    function sheetRef(taskId) { return doc(db, 'boards', currentBoardId, 'tasks', taskId, 'premium', 'sheet'); }
+    async function loadSheet(taskId, onLoaded) {
+        if (!premiumActive) return false;
+        try { onLoaded((await getDoc(sheetRef(taskId))).data()?.url || ''); return true; }
+        catch (error) { console.error('Could not load Google Sheet:', error); return false; }
+    }
+    async function openSheet(taskId) {
+        if (!requirePremium()) return;
+        const tab = window.open('', '_blank');
+        const loaded = await loadSheet(taskId, url => {
+            if (url && tab) tab.location.replace(url);
+            else { if (tab) tab.close(); if (currentTasksById[taskId]) openViewModal(currentTasksById[taskId]); }
+        });
+        if (!loaded) { if (tab) tab.close(); alert('Could not load this Google Sheet link.'); }
+    }
+
     function refreshTaskView(task) {
         viewTaskTitle.textContent = task.title || '';
         viewTaskDescription.textContent = task.description || '';
@@ -1768,17 +1842,18 @@
         });
 
         viewTaskSheet.replaceChildren();
-        const sheetUrl = normalizeSheetUrl(task.sheetUrl || '');
-        if (sheetUrl) {
+        viewTaskSheet.textContent = premiumActive ? 'Loading sheet link…' : 'Subscribe to use Google Sheets links.';
+        if (premiumActive) loadSheet(task.id, url => {
+            if (viewedTaskId !== task.id) return;
+            viewTaskSheet.replaceChildren();
+            if (!url) { viewTaskSheet.textContent = 'No sheet linked'; return; }
             const link = document.createElement('a');
-            link.href = sheetUrl;
+            link.href = url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.textContent = 'Open Google Sheet';
             viewTaskSheet.appendChild(link);
-        } else {
-            viewTaskSheet.textContent = 'No sheet linked';
-        }
+        });
 
         const canManage = canManageTask(task);
         editTaskSalesPitchBtn.hidden = !canManage;
@@ -1829,7 +1904,9 @@
     editTaskSheetBtn.addEventListener('click', () => {
         const task = currentTasksById[viewedTaskId];
         if (!task || !canManageTask(task)) return;
-        taskSheetUrlInput.value = task.sheetUrl || '';
+        if (!requirePremium()) return;
+        taskSheetUrlInput.value = '';
+        loadSheet(task.id, url => { if (viewedTaskId === task.id) taskSheetUrlInput.value = url; });
         taskSheetError.textContent = '';
         taskSheetEditor.hidden = false;
         taskSheetUrlInput.focus();
@@ -1838,6 +1915,7 @@
     saveTaskSheetBtn.addEventListener('click', async () => {
         const task = currentTasksById[viewedTaskId];
         if (!task || !canManageTask(task)) return;
+        if (!requirePremium()) return;
         const sheetUrl = normalizeSheetUrl(taskSheetUrlInput.value);
         if (sheetUrl === null) {
             taskSheetError.textContent = 'Enter a valid Google Sheets URL, or leave it blank to remove the link.';
@@ -1846,11 +1924,15 @@
         saveTaskSheetBtn.disabled = true;
         taskSheetError.textContent = '';
         try {
-            await updateDoc(taskRef(task.id), {
-                sheetUrl,
-                lastUpdated: new Date().toLocaleString()
-            });
+            if (sheetUrl) await setDoc(sheetRef(task.id), { url: sheetUrl });
+            else await deleteDoc(sheetRef(task.id));
+            await updateDoc(taskRef(task.id), { lastUpdated: new Date().toLocaleString() });
             taskSheetEditor.hidden = true;
+            refreshTaskView(task);
+            if (sheetUrl) loadSheet(task.id, url => {
+                const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                link.textContent = 'Open Google Sheet'; viewTaskSheet.replaceChildren(link);
+            });
         } catch (error) {
             console.error('Could not save sheet link:', error);
             taskSheetError.textContent = 'Could not save the link. Check your task permissions.';
@@ -1942,6 +2024,7 @@
     });
 
     function showAttachmentMenu(anchorEl, attachment) {
+        if (!requirePremium()) return;
         if (openAttachmentMenu) { openAttachmentMenu.remove(); openAttachmentMenu = null; }
         if (!attachment) return;
 
@@ -1957,9 +2040,14 @@
         menu.style.left = `${window.scrollX + rect.left}px`;
         openAttachmentMenu = menu;
 
-        menu.querySelector('[data-action="view"]').addEventListener('click', (e) => {
+        menu.querySelector('[data-action="view"]').addEventListener('click', async (e) => {
             e.stopPropagation();
-            window.open(attachment.url, '_blank');
+            const tab = window.open('', '_blank');
+            try {
+                const blob = await getBlob(storageRef(storage, attachment.path));
+                const blobUrl = URL.createObjectURL(blob);
+                if (tab) { tab.location.href = blobUrl; setTimeout(() => URL.revokeObjectURL(blobUrl), 60000); }
+            } catch (error) { console.error('Could not view document:', error); if (tab) tab.close(); alert('Could not open this document.'); }
             menu.remove();
             openAttachmentMenu = null;
         });
@@ -1967,8 +2055,7 @@
         menu.querySelector('[data-action="download"]').addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
-                const resp = await fetch(attachment.url);
-                const blob = await resp.blob();
+                const blob = await getBlob(storageRef(storage, attachment.path));
                 const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
@@ -1976,12 +2063,10 @@
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-                URL.revokeObjectURL(blobUrl);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
             } catch (err) {
                 console.error(err);
-                // Fall back to opening the file directly if fetching the blob fails
-                // (e.g. Storage CORS isn't configured for this origin yet).
-                window.open(attachment.url, '_blank');
+                alert('Could not download this document. Please try again.');
             }
             menu.remove();
             openAttachmentMenu = null;
@@ -1995,6 +2080,7 @@
         if (!title) { alert('Please enter a task title'); return; }
         const sheetUrl = normalizeSheetUrl(document.getElementById('task-form-sheet-url').value);
         if (sheetUrl === null) { alert('Enter a valid Google Sheets URL, or leave it blank.'); return; }
+        if ((sheetUrl || pendingFiles.length) && !requirePremium()) return;
         const noteBody = document.getElementById('task-form-note').value.trim();
         if (noteBody.length > 5000) { alert('Notes must be 5,000 characters or fewer.'); return; }
         if (pendingFiles.some(file => file.size > 20 * 1024 * 1024)) {
@@ -2009,7 +2095,6 @@
             priority: document.getElementById('task-priority').value,
             assignee: document.getElementById('task-assignee').value,
             dueDate: document.getElementById('task-due').value,
-            sheetUrl,
             lastUpdated: new Date().toLocaleString()
         };
 
@@ -2033,6 +2118,11 @@
             }
             taskSaved = true;
 
+            if (sheetUrl) {
+                saveStep = 'sheet';
+                await setDoc(sheetRef(taskId), { url: sheetUrl });
+            }
+
             if (noteBody) {
                 try {
                     await addDoc(notesCol(taskId), {
@@ -2054,10 +2144,9 @@
                 for (const file of pendingFiles) {
                     const path = `boards/${currentBoardId}/attachments/${taskId}/${Date.now()}_${file.name}`;
                     const fileRef = storageRef(storage, path);
-                    await uploadBytes(fileRef, file);
-                    const url = await getDownloadURL(fileRef);
+                    await uploadBytes(fileRef, file, { customMetadata: { uploaderUid: currentUser.uid } });
                     await updateDoc(taskRef(taskId), {
-                        attachments: arrayUnion({ name: file.name, path, url, size: file.size, contentType: file.type || '' })
+                        attachments: arrayUnion({ name: file.name, path, size: file.size, contentType: file.type || '' })
                     });
                 }
             }

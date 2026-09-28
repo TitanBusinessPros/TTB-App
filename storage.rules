@@ -13,18 +13,18 @@ service firebase.storage {
           ? true
           : firestore.exists(/databases/(default)/documents/board_invites/$(request.auth.token.email.lower())/boards/$(boardId)));
     }
-    function canManageFile(boardId, taskId) {
-      return request.auth.uid == boardId
-        || firestore.get(/databases/(default)/documents/boards/$(boardId)/tasks/$(taskId)).data.createdBy == request.auth.uid
-        || firestore.get(/databases/(default)/documents/boards/$(boardId)/tasks/$(taskId)).data.assignee == request.auth.uid;
+    function hasPremium(boardId) {
+      return firestore.get(/databases/(default)/documents/boards/$(boardId)).data.premiumActive == true
+        && firestore.get(/databases/(default)/documents/boards/$(boardId)).data.premiumUntil > request.time;
     }
 
     match /boards/{boardId}/attachments/{taskId}/{fileName} {
-      allow read: if isMember(boardId);
-      allow create: if isMember(boardId)
+      allow read: if isMember(boardId) && hasPremium(boardId);
+      allow create: if isMember(boardId) && hasPremium(boardId)
         && request.resource.size <= 20 * 1024 * 1024
-        && canManageFile(boardId, taskId);
-      allow delete: if isMember(boardId) && canManageFile(boardId, taskId);
+        && request.resource.metadata.uploaderUid == request.auth.uid;
+      allow delete: if isMember(boardId)
+        && (request.auth.uid == boardId || resource.metadata.uploaderUid == request.auth.uid);
       allow update: if false;
     }
   }

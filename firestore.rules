@@ -27,6 +27,10 @@ service cloud.firestore {
         && (request.auth.uid == boardId || exists(invitePath(userEmail(), boardId)));
     }
     function isAdmin(boardId) { return isMember(boardId) && request.auth.uid == boardId; }
+    function hasPremium(boardId) {
+      return get(/databases/$(database)/documents/boards/$(boardId)).data.premiumActive == true
+        && get(/databases/$(database)/documents/boards/$(boardId)).data.premiumUntil > request.time;
+    }
     function isAssignee(boardId, taskId) {
       return exists(/databases/$(database)/documents/boards/$(boardId)/tasks/$(taskId))
         && get(/databases/$(database)/documents/boards/$(boardId)/tasks/$(taskId)).data.assignee == request.auth.uid;
@@ -129,7 +133,7 @@ service cloud.firestore {
           && (!request.resource.data.keys().hasAny(['salesPitch'])
             || (request.resource.data.salesPitch is string
               && request.resource.data.salesPitch.size() <= 10000))
-          && validSheetUrl(request.resource.data.sheetUrl)
+          && !request.resource.data.keys().hasAny(['sheetUrl'])
           && !request.resource.data.keys().hasAny(['notes']);
         allow update: if isMember(boardId)
           && !request.resource.data.keys().hasAny(['notes'])
@@ -137,13 +141,11 @@ service cloud.firestore {
           && (!request.resource.data.keys().hasAny(['salesPitch'])
             || (request.resource.data.salesPitch is string
               && request.resource.data.salesPitch.size() <= 10000))
+          && !request.resource.data.keys().hasAny(['sheetUrl'])
           && (
             isAdmin(boardId) ||
             (resource.data.assignee == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['salesPitch', 'lastUpdated'])) ||
-            (resource.data.assignee == request.auth.uid
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sheetUrl', 'lastUpdated'])
-              && validSheetUrl(request.resource.data.sheetUrl)) ||
             (resource.data.assignee == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['column', 'lastUpdated'])
               && request.resource.data.column in ['todo', 'progress', 'review', 'done']) ||
@@ -167,6 +169,18 @@ service cloud.firestore {
           allow delete: if isMember(boardId)
             && (isAdmin(boardId) || isAssignee(boardId, taskId));
           allow update: if false;
+        }
+        match /premium/{premiumId} {
+          allow get: if premiumId == 'sheet' && isMember(boardId) && hasPremium(boardId);
+          allow list: if false;
+          allow create, update: if premiumId == 'sheet' && isMember(boardId) && hasPremium(boardId)
+            && (isAdmin(boardId) || isAssignee(boardId, taskId))
+            && request.resource.data.keys().hasOnly(['url'])
+            && request.resource.data.keys().hasAll(['url'])
+            && validSheetUrl(request.resource.data.url)
+            && request.resource.data.url != '';
+          allow delete: if premiumId == 'sheet' && isMember(boardId) && hasPremium(boardId)
+            && (isAdmin(boardId) || isAssignee(boardId, taskId));
         }
       }
     }

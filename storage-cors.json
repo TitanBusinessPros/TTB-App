@@ -1,0 +1,11 @@
+[
+  {
+    "origin": [
+      "https://team-task-board-a1fb3.web.app",
+      "https://team-task-board-a1fb3.firebaseapp.com",
+      "https://titanbusinesspros.github.io"
+    ],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

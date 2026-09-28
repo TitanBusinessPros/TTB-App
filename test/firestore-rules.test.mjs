@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   addDoc, collection, deleteDoc, doc, getDoc, getDocs,
-  serverTimestamp, setDoc, updateDoc, writeBatch
+  serverTimestamp, setDoc, updateDoc, writeBatch, Timestamp
 } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
@@ -28,6 +28,7 @@ const localInvite = (db, boardId, email) => doc(db, 'boards', boardId, 'invites'
 const slot = (db, boardId, slotId) => doc(db, 'boards', boardId, 'slots', slotId);
 const task = (db, boardId) => doc(db, 'boards', boardId, 'tasks', 'task-a');
 const notes = (db, boardId) => collection(db, 'boards', boardId, 'tasks', 'task-a', 'notes');
+const sheet = (db, boardId) => doc(db, 'boards', boardId, 'tasks', 'task-a', 'premium', 'sheet');
 const grantInvite = (email, slotId) => {
   const batch = writeBatch(ownerA);
   batch.set(slot(ownerA, 'owner-a', slotId), { email, addedAt: serverTimestamp() });
@@ -88,7 +89,7 @@ try {
 
   await assertSucceeds(setDoc(task(ownerA, 'owner-a'), {
     title: 'Call people', description: '', salesPitch: '', priority: 'medium',
-    assignee: 'member-a', dueDate: '', sheetUrl: '', column: 'todo',
+    assignee: 'member-a', dueDate: '', column: 'todo',
     createdAt: serverTimestamp(), createdBy: 'owner-a', lastUpdated: '', attachments: []
   }));
   await assertSucceeds(getDoc(task(member, 'owner-a')));
@@ -99,6 +100,18 @@ try {
   await assertSucceeds(updateDoc(task(member, 'owner-a'), { salesPitch: 'Our offer', lastUpdated: 'now' }));
   await assertFails(updateDoc(task(member, 'owner-a'), { assignee: 'owner-b' }));
   await assertFails(updateDoc(task(ownerB, 'owner-a'), { salesPitch: 'Cross-board edit' }));
+  await assertFails(updateDoc(task(ownerA, 'owner-a'), { sheetUrl: 'https://docs.google.com/spreadsheets/d/123' }));
+  await assertFails(setDoc(sheet(member, 'owner-a'), { url: 'https://docs.google.com/spreadsheets/d/123' }));
+  await assertFails(updateDoc(board(ownerA, 'owner-a'), { premiumActive: true }));
+
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), {
+      premiumActive: true, premiumUntil: Timestamp.fromMillis(Date.now() + 86400000)
+    });
+  });
+  await assertSucceeds(setDoc(sheet(member, 'owner-a'), { url: 'https://docs.google.com/spreadsheets/d/123' }));
+  await assertSucceeds(getDoc(sheet(ownerA, 'owner-a')));
+  await assertFails(getDoc(sheet(ownerB, 'owner-a')));
 
   const addedNote = await assertSucceeds(addDoc(notes(member, 'owner-a'), {
     body: 'Private contact details', authorUid: 'member-a', createdAt: serverTimestamp()
@@ -110,10 +123,17 @@ try {
   const bucket = 'gs://team-task-board-a1fb3.firebasestorage.app';
   const flyerPath = 'boards/owner-a/attachments/task-a/flyer.png';
   const flyer = memberContext.storage(bucket).ref(flyerPath);
-  await assertSucceeds(flyer.putString('Flyer'));
+  await assertSucceeds(flyer.putString('Flyer', 'raw', { customMetadata: { uploaderUid: 'member-a' } }));
   await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertFails(ownerBContext.storage(bucket).ref(flyerPath).getMetadata());
   await assertFails(outsiderContext.storage(bucket).ref(flyerPath).getMetadata());
+
+  await env.withSecurityRulesDisabled(async context => {
+    await updateDoc(board(context.firestore(), 'owner-a'), { premiumActive: false });
+  });
+  await assertFails(getDoc(sheet(member, 'owner-a')));
+  await assertFails(memberContext.storage(bucket).ref(flyerPath).getMetadata());
+  await assertFails(memberContext.storage(bucket).ref('boards/owner-a/attachments/task-a/new.png').putString('New', 'raw', { customMetadata: { uploaderUid: 'member-a' } }));
 
   await assertFails(deleteDoc(invitation(ownerA, 'member@example.com', 'owner-a')));
   const revoke = writeBatch(ownerA);
@@ -127,7 +147,7 @@ try {
   await assertSucceeds(ownerAContext.storage(bucket).ref(flyerPath).delete());
   await assertSucceeds(grantInvite('replacement@example.com', '1'));
 
-  console.log('Five-person limit, board isolation, private notes, and Storage rules passed.');
+  console.log('Five-person limit, board isolation, private notes, and premium access rules passed.');
 } finally {
   await env.cleanup();
 }
