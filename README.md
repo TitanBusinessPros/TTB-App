@@ -10,7 +10,8 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
 - Firebase project: `team-task-board-a1fb3`
 - Local source snapshot: `../TTB-App-current-2026-09-27-trial.zip`. It contains the
   tracked source and project instructions, without dependencies, Firebase
-  credentials, or the Stripe webhook secret.
+  credentials, or the Stripe webhook secret. It predates the 2026-09-28
+  attachment menu, mobile layout, and Current Task checklist releases.
 - The verified `titanbusinesspros@gmail.com` board has a complimentary premium
   grant through **2027-09-28 03:37 UTC** (September 27 in Oklahoma).
 - The app, premium rules, grant functions, and Storage CORS are live. Emulator
@@ -19,6 +20,25 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   that the Stripe destination points to this webhook. Delivery from Stripe and
   a real payment have not yet been verified; check the first payment in Stripe
   and the board's premium status before relying on automatic paid activation.
+- On 2026-09-28, a Hosting-only release fixed the attachment menu in the task
+  detail and edit dialogs. The click that opened the menu had also reached the
+  document click handler, which closed it before View or Download could be
+  selected. The live page and `sw.js` returned HTTP 200 and contained the fix
+  and `ttb-static-v9` after deployment. The local Firestore/Storage access-rule
+  suite passed. An authenticated file view/download on the live board still
+  needs a manual check.
+- On 2026-09-28, a Hosting-only release restored the desktop-style horizontal
+  status columns on mobile. Users can swipe between columns and scroll through
+  tasks within a column, keeping long task lists from stretching the page.
+  The live page and `sw.js` returned HTTP 200 with the layout change and
+  `ttb-static-v10`.
+- On 2026-09-28, the Current Task release added a checklist between Task Title
+  and Description. Admins can create, edit, and remove up to 30 items per task;
+  the admin and task assignee can check or uncheck items on the board card or
+  detail view. Completed items show a line through their text. The local
+  Firestore/Storage rule suite passed, Hosting and Firestore rules were deployed,
+  and the live page and `sw.js` returned HTTP 200 with `ttb-static-v11`.
+  A signed-in checklist save on the live board has not been manually checked.
 
 ## Access
 
@@ -51,6 +71,9 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   the board admin and current assignee may read, add, or delete them.
 - Each task includes a description and sales pitch. The sign-in page and board
   share the Titan Business Pros contact footer and Facebook link.
+- Each task can have up to 30 Current Task checklist items. Board admins edit
+  item text; the admin and assigned person can mark each item complete or
+  incomplete. Completed items are crossed out.
 
 ## Install the app
 
@@ -75,7 +98,7 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v8`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v11`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup

@@ -136,6 +136,9 @@ service cloud.firestore {
           && (!request.resource.data.keys().hasAny(['salesPitch'])
             || (request.resource.data.salesPitch is string
               && request.resource.data.salesPitch.size() <= 10000))
+          && (!request.resource.data.keys().hasAny(['currentTasks'])
+            || (request.resource.data.currentTasks is list
+              && request.resource.data.currentTasks.size() <= 30))
           && !request.resource.data.keys().hasAny(['sheetUrl'])
           && !request.resource.data.keys().hasAny(['notes']);
         allow update: if isMember(boardId)
@@ -144,11 +147,16 @@ service cloud.firestore {
           && (!request.resource.data.keys().hasAny(['salesPitch'])
             || (request.resource.data.salesPitch is string
               && request.resource.data.salesPitch.size() <= 10000))
+          && (!request.resource.data.keys().hasAny(['currentTasks'])
+            || (request.resource.data.currentTasks is list
+              && request.resource.data.currentTasks.size() <= 30))
           && !request.resource.data.keys().hasAny(['sheetUrl'])
           && (
             isAdmin(boardId) ||
             (resource.data.assignee == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['salesPitch', 'lastUpdated'])) ||
+            (resource.data.assignee == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentTasks', 'lastUpdated'])) ||
             (resource.data.assignee == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['column', 'lastUpdated'])
               && request.resource.data.column in ['todo', 'progress', 'review', 'done']) ||

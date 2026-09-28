@@ -27,9 +27,32 @@
 - `public/index.html` is the Firebase Hosting entry point. Keep its copy at
   `index.html` identical. Keep `public/sw.js` and `sw.js` identical and bump
   their cache name when releasing the app. The current cache is
-  `ttb-static-v8`.
+  `ttb-static-v11`.
+- The user authorized deploying future requested changes for this app to its
+  Firebase project as part of completing the work. This standing preference
+  applies only to `TTB-App`; it does not authorize GitHub pushes or changes to
+  the parent `Team-Task-Board-2` repository. Deploy only the Firebase targets
+  affected by the change and verify the live release.
+- The 2026-09-28 Hosting-only mobile layout release keeps status columns side
+  by side on narrow screens, with horizontal board scrolling and vertical task
+  scrolling inside each column. The live page and service worker returned HTTP
+  200 with the change and `ttb-static-v10` after deployment.
+- The 2026-09-28 Current Task release added up to 30 checklist items between
+  title and description. Each item has editable text and a completion checkbox
+  that crosses it out. Admins create/edit items; admins and assignees can toggle
+  completion on task cards and in task details. Hosting and Firestore rules were
+  deployed; the local access-rule suite passed, and the live page and service
+  worker returned HTTP 200 with `ttb-static-v11`. An authenticated checklist
+  save on the live board has not been manually checked.
+- The 2026-09-28 Hosting-only release fixed attachment View/Download menus in
+  task detail and edit dialogs. Attachment chip clicks there must stop
+  propagation; the document click listener closes an open menu. The live page
+  and service worker were fetched successfully after deployment, and the local
+  access-rule suite passed. A signed-in view/download of an actual file has
+  not yet been verified.
 - Run `npm run test:rules` for changes to Firestore or Storage access rules.
   Deploy with `firebase deploy --only functions,firestore:rules,storage,hosting
   --project team-task-board-a1fb3` when authorized. A local source snapshot
-  is saved as `../TTB-App-current-2026-09-27-trial.zip`. The previous snapshot
-  remains at `../TTB-App-current-2026-09-27.zip`.
+  is saved as `../TTB-App-current-2026-09-27-trial.zip`; it predates the
+  attachment menu fix. The previous snapshot remains at
+  `../TTB-App-current-2026-09-27.zip`.

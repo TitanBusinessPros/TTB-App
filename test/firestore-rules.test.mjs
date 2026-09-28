@@ -89,6 +89,7 @@ try {
 
   await assertSucceeds(setDoc(task(ownerA, 'owner-a'), {
     title: 'Call people', description: '', salesPitch: '', priority: 'medium',
+    currentTasks: [{ id: 'step-1', text: 'Call the client', done: false }],
     assignee: 'member-a', dueDate: '', column: 'todo',
     createdAt: serverTimestamp(), createdBy: 'owner-a', lastUpdated: '', attachments: []
   }));
@@ -98,6 +99,15 @@ try {
   await assertFails(getDocs(collection(ownerB, 'boards', 'owner-a', 'tasks')));
   await assertFails(getDoc(doc(ownerA, 'tasks', 'legacy-task')));
   await assertSucceeds(updateDoc(task(member, 'owner-a'), { salesPitch: 'Our offer', lastUpdated: 'now' }));
+  await assertSucceeds(updateDoc(task(member, 'owner-a'), {
+    currentTasks: [{ id: 'step-1', text: 'Call the client', done: true }], lastUpdated: 'now'
+  }));
+  await assertFails(updateDoc(task(member, 'owner-a'), {
+    currentTasks: [{ id: 'step-1', text: 'Call the client', done: false }], title: 'Changed by member'
+  }));
+  await assertFails(updateDoc(task(ownerA, 'owner-a'), {
+    currentTasks: Array.from({ length: 31 }, (_, index) => ({ id: `step-${index}`, text: 'Task', done: false }))
+  }));
   await assertFails(updateDoc(task(member, 'owner-a'), { assignee: 'owner-b' }));
   await assertFails(updateDoc(task(ownerB, 'owner-a'), { salesPitch: 'Cross-board edit' }));
   await assertFails(updateDoc(task(ownerA, 'owner-a'), { sheetUrl: 'https://docs.google.com/spreadsheets/d/123' }));

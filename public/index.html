@@ -420,6 +420,29 @@
 
         .task-title { font-weight: 600; font-size: 16px; overflow-wrap: break-word; word-break: break-word; }
 
+        .current-task-card { margin-bottom: 12px; }
+        .current-task-card h4 { font-size: 13px; margin-bottom: 7px; }
+        .current-task-list { display: grid; gap: 8px; }
+        .current-task-item {
+            display: flex; align-items: flex-start; gap: 8px;
+            font-size: 14px; line-height: 1.4; cursor: pointer;
+        }
+        .current-task-item input[type="checkbox"] {
+            flex: 0 0 18px; width: 18px; height: 18px; margin: 1px 0 0;
+            accent-color: #27ae60; cursor: pointer;
+        }
+        .current-task-item span { overflow-wrap: anywhere; }
+        .current-task-item.is-complete span { color: #7f8c8d; text-decoration: line-through; }
+        .current-task-edit-list { display: grid; gap: 8px; margin-bottom: 10px; }
+        .current-task-edit-row { display: flex; align-items: center; gap: 8px; }
+        .form-group .current-task-edit-row input[type="checkbox"] {
+            flex: 0 0 18px; width: 18px; height: 18px; padding: 0; accent-color: #27ae60;
+        }
+        .form-group .current-task-edit-row input[type="text"] { flex: 1; min-width: 0; }
+        .current-task-edit-row.is-complete input[type="text"] { color: #7f8c8d; text-decoration: line-through; }
+        .current-task-remove { border: 0; background: none; color: #b03a2e; cursor: pointer; }
+        .current-task-help { display: block; margin-bottom: 10px; color: #64748b; font-size: 13px; }
+
         .task-priority {
             font-size: 12px;
             padding: 3px 8px;
@@ -688,8 +711,8 @@
         }
 
         @media (max-width: 768px) {
-            .board { flex-direction: column; align-items: center; }
-            .column { flex: 0 0 auto; width: 100%; max-width: 400px; }
+            .column { flex-basis: min(320px, calc(100vw - 40px)); }
+            .tasks { -webkit-overflow-scrolling: touch; }
             header { flex-direction: column; gap: 15px; text-align: center; }
         }
     </style>
@@ -860,6 +883,10 @@
                 <span id="view-task-priority"></span>
                 <span id="view-task-due"></span>
             </div>
+            <div class="task-section" id="view-current-task-section">
+                <h3>Current Task</h3>
+                <div class="current-task-list" id="view-current-tasks"></div>
+            </div>
             <div class="view-description" id="view-task-description"></div>
             <div class="task-section">
                 <h3>Sales Pitch</h3>
@@ -915,6 +942,12 @@
             <div class="form-group">
                 <label for="task-title">Task Title</label>
                 <input type="text" id="task-title" placeholder="Enter task title">
+            </div>
+            <div class="form-group">
+                <label>Current Task</label>
+                <small class="current-task-help">Add up to 30 items. Check once completed to cross an item out.</small>
+                <div class="current-task-edit-list" id="current-task-edit-list"></div>
+                <button class="btn-secondary" id="add-current-task" type="button">Add current task</button>
             </div>
             <div class="form-group">
                 <label for="task-description">Description</label>
@@ -1144,6 +1177,8 @@
     const closeModalButtons = document.querySelectorAll('.close-modal');
     const cancelTaskBtn = document.getElementById('cancel-task');
     const saveTaskBtn = document.getElementById('save-task');
+    const currentTaskEditList = document.getElementById('current-task-edit-list');
+    const addCurrentTaskBtn = document.getElementById('add-current-task');
     const teamGrid = document.getElementById('team-grid');
     const adminAllowlist = document.getElementById('admin-allowlist');
     const allowedEmailInput = document.getElementById('allowed-email-input');
@@ -1160,6 +1195,8 @@
 
     const viewTaskModal = document.getElementById('view-task-modal');
     const viewTaskTitle = document.getElementById('view-task-title');
+    const viewCurrentTaskSection = document.getElementById('view-current-task-section');
+    const viewCurrentTasks = document.getElementById('view-current-tasks');
     const viewTaskDescription = document.getElementById('view-task-description');
     const viewTaskSalesPitch = document.getElementById('view-task-sales-pitch');
     const editTaskSalesPitchBtn = document.getElementById('edit-task-sales-pitch');
@@ -1667,6 +1704,7 @@
         const assigneeData = teamMembers[task.assignee] || { name: 'Unassigned' };
         const initials = (assigneeData.name || '?').slice(0, 2).toUpperCase();
         const priorityLabel = ['low', 'medium', 'high'].includes(task.priority) ? task.priority : 'medium';
+        const currentTasks = getCurrentTasks(task);
 
         const attachments = task.attachments || [];
         const attachmentsHtml = attachments.map((a, i) =>
@@ -1682,6 +1720,7 @@
                 <div class="task-title">${escapeHtml(task.title || '')}</div>
                 <div class="task-priority">${priorityLabel.charAt(0).toUpperCase() + priorityLabel.slice(1)}</div>
             </div>
+            ${currentTasks.length ? '<div class="current-task-card"><h4>Current Task</h4><div class="current-task-list"></div></div>' : ''}
             <div class="task-description">${escapeHtml(task.description || '')}</div>
             <div class="task-sheet"></div>
             <button type="button" class="read-more-btn">Read more</button>
@@ -1697,6 +1736,8 @@
                 <div>Last updated: ${escapeHtml(task.lastUpdated || 'just now')}</div>
             </div>
         `;
+
+        if (currentTasks.length) renderCurrentTaskList(el.querySelector('.current-task-list'), task);
 
         const sheetButton = document.createElement('button');
         sheetButton.type = 'button';
@@ -1774,10 +1815,58 @@
     }
 
     // ---------- Task modal ----------
+    function newCurrentTaskId() {
+        return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function getCurrentTasks(task) {
+        return Array.isArray(task.currentTasks)
+            ? task.currentTasks.filter(item => item && typeof item.text === 'string' && item.text.trim()).slice(0, 30)
+            : [];
+    }
+
+    function appendCurrentTaskEditRow(item = { text: '', done: false }) {
+        if (currentTaskEditList.children.length >= 30) return;
+        const row = document.createElement('div');
+        row.className = 'current-task-edit-row';
+        row.dataset.itemId = item.id || newCurrentTaskId();
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.done === true;
+        checkbox.setAttribute('aria-label', 'Check once completed');
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 160;
+        input.placeholder = 'Type a current task';
+        input.value = item.text || '';
+        input.setAttribute('aria-label', 'Current task item');
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'current-task-remove';
+        remove.textContent = 'Remove';
+        remove.setAttribute('aria-label', 'Remove current task item');
+        row.classList.toggle('is-complete', checkbox.checked);
+        checkbox.addEventListener('change', () => row.classList.toggle('is-complete', checkbox.checked));
+        remove.addEventListener('click', () => {
+            row.remove();
+            addCurrentTaskBtn.disabled = false;
+        });
+        row.append(checkbox, input, remove);
+        currentTaskEditList.appendChild(row);
+        addCurrentTaskBtn.disabled = currentTaskEditList.children.length >= 30;
+        return input;
+    }
+
+    addCurrentTaskBtn.addEventListener('click', () => appendCurrentTaskEditRow()?.focus());
+
     function openTaskModal(task) {
         editingTaskId = task ? task.id : null;
         modalTitle.textContent = task ? 'Edit Task' : 'Add New Task';
         document.getElementById('task-title').value = task ? task.title : '';
+        currentTaskEditList.replaceChildren();
+        const currentTasks = task ? getCurrentTasks(task) : [];
+        if (currentTasks.length) currentTasks.forEach(appendCurrentTaskEditRow);
+        else appendCurrentTaskEditRow();
         document.getElementById('task-description').value = task ? task.description : '';
         document.getElementById('task-form-sales-pitch').value = task ? task.salesPitch || '' : '';
         document.getElementById('task-form-note').value = '';
@@ -1834,7 +1923,8 @@
                 }
                 renderModalAttachments();
             });
-            chip.addEventListener('click', () => {
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const idx = Number(chip.dataset.index);
                 if (chip.dataset.kind === 'existing') {
                     showAttachmentMenu(chip, existingAttachments[idx]);
@@ -1874,6 +1964,52 @@
     // ---------- Task details, sheet link, and private notes ----------
     function canManageTask(task) {
         return !!currentUser && (isAdmin || task.assignee === currentUser.uid);
+    }
+
+    function renderCurrentTaskList(container, task) {
+        container.replaceChildren();
+        getCurrentTasks(task).forEach(item => {
+            const label = document.createElement('label');
+            label.className = 'current-task-item';
+            label.classList.toggle('is-complete', item.done === true);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = item.done === true;
+            checkbox.disabled = !canManageTask(task) || !item.id;
+            checkbox.setAttribute('aria-label', `Check once completed: ${item.text}`);
+            const text = document.createElement('span');
+            text.textContent = item.text;
+            label.append(checkbox, text);
+            label.addEventListener('click', event => event.stopPropagation());
+            label.addEventListener('dragstart', event => event.preventDefault());
+            checkbox.addEventListener('change', async () => {
+                const done = checkbox.checked;
+                label.classList.toggle('is-complete', done);
+                checkbox.disabled = true;
+                try {
+                    const reference = taskRef(task.id);
+                    await runTransaction(db, async transaction => {
+                        const snapshot = await transaction.get(reference);
+                        if (!snapshot.exists()) throw new Error('Task no longer exists');
+                        const latestTask = snapshot.data();
+                        if (!isAdmin && latestTask.assignee !== currentUser?.uid) throw new Error('Task access changed');
+                        const currentTasks = getCurrentTasks(latestTask);
+                        const index = currentTasks.findIndex(currentItem => currentItem.id === item.id);
+                        if (index < 0) throw new Error('Current task item no longer exists');
+                        currentTasks[index] = { ...currentTasks[index], done };
+                        transaction.update(reference, { currentTasks, lastUpdated: new Date().toLocaleString() });
+                    });
+                } catch (error) {
+                    console.error('Could not update current task:', error);
+                    checkbox.checked = !done;
+                    label.classList.toggle('is-complete', !done);
+                    alert('Could not update the current task. Please try again.');
+                } finally {
+                    checkbox.disabled = !canManageTask(task);
+                }
+            });
+            container.appendChild(label);
+        });
     }
 
     addAllowedEmailBtn.addEventListener('click', async () => {
@@ -1981,6 +2117,10 @@
 
     function refreshTaskView(task) {
         viewTaskTitle.textContent = task.title || '';
+        const currentTasks = getCurrentTasks(task);
+        viewCurrentTaskSection.hidden = currentTasks.length === 0;
+        if (currentTasks.length) renderCurrentTaskList(viewCurrentTasks, task);
+        else viewCurrentTasks.replaceChildren();
         viewTaskDescription.textContent = task.description || '';
         viewTaskSalesPitch.textContent = task.salesPitch || 'No sales pitch yet.';
         const priorityLabel = ['low', 'medium', 'high'].includes(task.priority) ? task.priority : 'medium';
@@ -1992,7 +2132,10 @@
             ? attachments.map((a, i) => `<div class="attachment-chip" data-index="${i}"><i class="fas fa-paperclip"></i><span>${escapeHtml(a.name)}</span></div>`).join('')
             : '<div class="empty-note">No attachments</div>';
         viewTaskAttachments.querySelectorAll('.attachment-chip').forEach(chip => {
-            chip.addEventListener('click', () => showAttachmentMenu(chip, attachments[Number(chip.dataset.index)]));
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showAttachmentMenu(chip, attachments[Number(chip.dataset.index)]);
+            });
         });
 
         viewTaskSheet.replaceChildren();
@@ -2232,6 +2375,11 @@
     saveTaskBtn.addEventListener('click', async () => {
         const title = document.getElementById('task-title').value.trim();
         if (!title) { alert('Please enter a task title'); return; }
+        const currentTasks = [...currentTaskEditList.children].map(row => ({
+            id: row.dataset.itemId,
+            text: row.querySelector('input[type="text"]').value.trim(),
+            done: row.querySelector('input[type="checkbox"]').checked
+        })).filter(item => item.text);
         const sheetUrl = normalizeSheetUrl(document.getElementById('task-form-sheet-url').value);
         if (sheetUrl === null) { alert('Enter a valid Google Sheets URL, or leave it blank.'); return; }
         if ((sheetUrl || pendingFiles.length) && !requirePremium()) return;
@@ -2244,6 +2392,7 @@
 
         const payload = {
             title,
+            currentTasks,
             description: document.getElementById('task-description').value.trim(),
             salesPitch: document.getElementById('task-form-sales-pitch').value.trim(),
             priority: document.getElementById('task-priority').value,
