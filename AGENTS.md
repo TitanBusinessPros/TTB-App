@@ -27,16 +27,21 @@
 - `public/index.html` is the Firebase Hosting entry point. Keep its copy at
   `index.html` identical. Keep `public/sw.js` and `sw.js` identical and bump
   their cache name when releasing the app. The current cache is
-  `ttb-static-v11`.
+  `ttb-static-v12`.
 - The user authorized deploying future requested changes for this app to its
   Firebase project as part of completing the work. This standing preference
   applies only to `TTB-App`; it does not authorize GitHub pushes or changes to
   the parent `Team-Task-Board-2` repository. Deploy only the Firebase targets
   affected by the change and verify the live release.
 - The 2026-09-28 Hosting-only mobile layout release keeps status columns side
-  by side on narrow screens, with horizontal board scrolling and vertical task
-  scrolling inside each column. The live page and service worker returned HTTP
-  200 with the change and `ttb-static-v10` after deployment.
+  by side on narrow screens, but still showed multiple task cards per column.
+  The live page and service worker returned HTTP 200 with `ttb-static-v10`.
+- The 2026-09-28 Hosting-only follow-up fixes the mobile task viewport: each
+  status column shows exactly one card at a time, with vertical scroll snapping
+  to the next card. Long cards can scroll internally. A seven-card sample was
+  checked in headless Edge: the second card began at the bottom of the task
+  viewport, and the task list was vertically scrollable. The live page and
+  service worker returned HTTP 200 with `ttb-static-v12`.
 - The 2026-09-28 Current Task release added up to 30 checklist items between
   title and description. Each item has editable text and a completion checkbox
   that crosses it out. Admins create/edit items; admins and assignees can toggle

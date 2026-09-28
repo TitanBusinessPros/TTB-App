@@ -29,9 +29,8 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   needs a manual check.
 - On 2026-09-28, a Hosting-only release restored the desktop-style horizontal
   status columns on mobile. Users can swipe between columns and scroll through
-  tasks within a column, keeping long task lists from stretching the page.
-  The live page and `sw.js` returned HTTP 200 with the layout change and
-  `ttb-static-v10`.
+  tasks within a column. It still showed several task cards at once. The live
+  page and `sw.js` returned HTTP 200 with `ttb-static-v10`.
 - On 2026-09-28, the Current Task release added a checklist between Task Title
   and Description. Admins can create, edit, and remove up to 30 items per task;
   the admin and task assignee can check or uncheck items on the board card or
@@ -39,6 +38,11 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   Firestore/Storage rule suite passed, Hosting and Firestore rules were deployed,
   and the live page and `sw.js` returned HTTP 200 with `ttb-static-v11`.
   A signed-in checklist save on the live board has not been manually checked.
+- On 2026-09-28, a Hosting-only follow-up made each mobile status column show
+  one task card at a time. Scroll up or down in the column to move between
+  cards; the column no longer grows into a long task list. Long cards scroll
+  internally. A seven-card mobile sample was checked in headless Edge, and the
+  live page and `sw.js` returned HTTP 200 with `ttb-static-v12`.
 
 ## Access
 
@@ -98,7 +102,7 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v11`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v12`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup
