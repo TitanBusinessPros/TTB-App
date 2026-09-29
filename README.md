@@ -56,6 +56,9 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   seven-task views have no horizontal overflow. Hosting now serves the page
   and service worker with no-store headers, and the v14 service worker updates
   open app windows when a release activates.
+- On 2026-09-28, a Hosting-only follow-up removed the remaining mobile gap
+  between the task board and footer. A 390px seven-task preview shows the
+  footer starting directly below the board. This release uses `ttb-static-v15`.
 
 ## Access
 
@@ -115,7 +118,7 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v14`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v15`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup
