@@ -162,7 +162,14 @@
 
         #login-error.success { color: #27ae60; }
 
-        #forgot-password-link:hover { text-decoration: underline; }
+        .legacy-connect { margin-top: 8px; text-align: left; }
+        .legacy-connect p { color: #64748b; font-size: 13px; line-height: 1.45; }
+        .legacy-connect a { color: #135da9; }
+        .legacy-connect [hidden], [hidden] { display: none !important; }
+        .google-connect-notice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding: 12px 16px; background: #edf5fc; border-radius: 8px; font-size: 14px; }
+        .google-connect-notice button { background: #3498db; color: white; }
+        .google-connect-notice button:disabled { opacity: .6; cursor: wait; }
+        #google-connect-status { width: 100%; color: #a83a2d; }
 
         #app-screen { display: none; }
 
@@ -822,15 +829,19 @@
             <div class="login-card">
                 <img class="login-logo" src="assets/TTTB-Logo.png" alt="Titan Team Task Board logo">
                 <h1>Welcome to your board</h1>
-                <p class="login-intro">Sign in, or create an account to become the admin of your own board.</p>
+                <p class="login-intro">Sign in with Google to open your board or create a new one.</p>
                 <div id="login-error" role="status"></div>
-                <input type="email" id="login-email" placeholder="Email" autocomplete="email">
-                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
-                <div style="text-align:right; margin-top:-8px; margin-bottom:15px;">
-                    <a href="#" id="forgot-password-link" style="font-size:13px; color:#3498db; text-decoration:none;">Forgot password?</a>
+                <button class="login-btn-primary" id="login-btn" type="button">Continue with Google</button>
+                <div class="legacy-connect">
+                    <p>Already have a board from email sign-in? <a href="#" id="show-legacy-connect">Connect it to Google</a> before using the button above.</p>
+                    <div id="legacy-connect-form" hidden>
+                        <p>Use your old board email and password once. After your board opens, select <strong>Connect Google</strong>. Choose the Google account with that same email.</p>
+                        <input type="email" id="legacy-email" placeholder="Old board email" autocomplete="email">
+                        <input type="password" id="legacy-password" placeholder="Old board password" autocomplete="current-password">
+                        <button class="login-btn-secondary" id="legacy-connect-btn" type="button">Open old board</button>
+                        <a href="#" id="forgot-password-link">Forgot your old password?</a>
+                    </div>
                 </div>
-                <button class="login-btn-primary" id="login-btn">Log In</button>
-                <button class="login-btn-secondary" id="signup-btn">Create my board</button>
                 <button class="login-install-btn" type="button" data-install-app>Install App</button>
             </div>
         </div>
@@ -859,6 +870,12 @@
                 </button>
             </div>
         </header>
+
+        <div class="google-connect-notice" id="google-connect-notice" hidden>
+            <span>Connect the Google account with your board email before logging out.</span>
+            <button type="button" id="connect-google-btn">Connect Google</button>
+            <span id="google-connect-status" role="status"></span>
+        </div>
 
         <div class="main-content">
             <div class="board">
@@ -1182,8 +1199,9 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
-        getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-        onAuthStateChanged, signOut, sendPasswordResetEmail, sendEmailVerification, reload, getIdToken
+        getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+        linkWithPopup, unlink, onAuthStateChanged, signOut, sendPasswordResetEmail,
+        sendEmailVerification, reload, getIdToken
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
         getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
@@ -1213,7 +1231,6 @@
     const PLATFORM_ADMIN_EMAIL = 'titanbusinesspros@gmail.com';
 
     let currentUser = null;
-    let registering = false;
     let isAdmin = false;
     let currentBoardId = null;
     let tasksCol = null;
@@ -1238,12 +1255,17 @@
     // ---------- DOM refs ----------
     const loginScreen = document.getElementById('login-screen');
     const appScreen = document.getElementById('app-screen');
-    const loginEmail = document.getElementById('login-email');
-    const loginPassword = document.getElementById('login-password');
     const loginError = document.getElementById('login-error');
     const loginBtn = document.getElementById('login-btn');
-    const signupBtn = document.getElementById('signup-btn');
+    const legacyEmail = document.getElementById('legacy-email');
+    const legacyPassword = document.getElementById('legacy-password');
+    const legacyConnectForm = document.getElementById('legacy-connect-form');
+    const legacyConnectBtn = document.getElementById('legacy-connect-btn');
+    const showLegacyConnect = document.getElementById('show-legacy-connect');
     const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const googleConnectNotice = document.getElementById('google-connect-notice');
+    const connectGoogleBtn = document.getElementById('connect-google-btn');
+    const googleConnectStatus = document.getElementById('google-connect-status');
     const logoutBtn = document.getElementById('logout-btn');
     const userBadge = document.getElementById('user-badge');
     const boardPicker = document.getElementById('board-picker');
@@ -1438,33 +1460,69 @@
     function slotRef(slotId, boardId = currentBoardId) { return doc(db, 'boards', boardId, 'slots', slotId); }
 
     // ---------- Auth actions ----------
-    signupBtn.addEventListener('click', async () => {
-        loginError.textContent = ''; loginError.classList.remove('success');
-        const email = loginEmail.value.trim();
-        const password = loginPassword.value;
-        if (!email || !password) { loginError.textContent = 'Enter an email and password.'; return; }
-        registering = true;
+    loginBtn.addEventListener('click', async () => {
+        setLoginMessage('', false);
+        loginBtn.disabled = true;
         try {
-            const cred = await createUserWithEmailAndPassword(auth, email, password);
-            await sendEmailVerification(cred.user);
-            await signOut(auth);
-            setLoginMessage('Check your email, verify your address, then log in to your new board.', true);
+            await signInWithPopup(auth, new GoogleAuthProvider());
         } catch (e) {
-            loginError.textContent = friendlyAuthError(e);
+            if (e.code === 'auth/account-exists-with-different-credential') {
+                legacyConnectForm.hidden = false;
+                legacyEmail.value = e.customData?.email || '';
+                setLoginMessage('This email already has a board. Open your old board below, then connect Google.', false);
+            } else if (e.code !== 'auth/popup-closed-by-user') {
+                setLoginMessage(friendlyAuthError(e), false);
+            }
         } finally {
-            registering = false;
+            loginBtn.disabled = false;
         }
     });
 
-    loginBtn.addEventListener('click', async () => {
-        loginError.textContent = ''; loginError.classList.remove('success');
-        const email = loginEmail.value.trim();
-        const password = loginPassword.value;
-        if (!email || !password) { loginError.textContent = 'Enter an email and password.'; return; }
+    showLegacyConnect.addEventListener('click', e => {
+        e.preventDefault();
+        legacyConnectForm.hidden = !legacyConnectForm.hidden;
+        if (!legacyConnectForm.hidden) legacyEmail.focus();
+    });
+
+    legacyConnectBtn.addEventListener('click', async () => {
+        setLoginMessage('', false);
+        const email = legacyEmail.value.trim();
+        const password = legacyPassword.value;
+        if (!email || !password) { setLoginMessage('Enter your old board email and password.', false); return; }
+        legacyConnectBtn.disabled = true;
         try {
             await signInWithEmailAndPassword(auth, email, password);
+            legacyPassword.value = '';
         } catch (e) {
-            loginError.textContent = friendlyAuthError(e);
+            setLoginMessage(friendlyAuthError(e), false);
+        } finally {
+            legacyConnectBtn.disabled = false;
+        }
+    });
+
+    connectGoogleBtn.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user?.email) return;
+        const boardEmail = user.email.toLowerCase();
+        googleConnectStatus.textContent = '';
+        connectGoogleBtn.disabled = true;
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ login_hint: boardEmail });
+        try {
+            const result = await linkWithPopup(user, provider);
+            const googleEmail = result.user.providerData.find(data => data.providerId === 'google.com')?.email;
+            if (googleEmail?.toLowerCase() !== boardEmail) {
+                await unlink(result.user, 'google.com');
+                throw new Error('Choose the Google account with the same email as your board.');
+            }
+            googleConnectNotice.hidden = true;
+        } catch (e) {
+            if (e.code !== 'auth/popup-closed-by-user') {
+                googleConnectStatus.textContent = e.message === 'Choose the Google account with the same email as your board.'
+                    ? e.message : friendlyAuthError(e);
+            }
+        } finally {
+            connectGoogleBtn.disabled = false;
         }
     });
 
@@ -1473,9 +1531,9 @@
     forgotPasswordLink.addEventListener('click', async (e) => {
         e.preventDefault();
         setLoginMessage('', false);
-        const email = loginEmail.value.trim();
+        const email = legacyEmail.value.trim();
         if (!email) {
-            setLoginMessage('Enter your email above first, then click "Forgot password?" again.', false);
+            setLoginMessage('Enter your old board email first.', false);
             return;
         }
         try {
@@ -1493,15 +1551,16 @@
 
     function friendlyAuthError(e) {
         const code = e.code || '';
-        if (code.includes('email-already-in-use')) return 'That email is already registered — try logging in instead.';
-        if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'Incorrect email or password.';
-        if (code.includes('weak-password')) return 'Password should be at least 6 characters.';
+        if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'That old board email and password did not match.';
         if (code.includes('invalid-email')) return 'That email address looks invalid.';
+        if (code.includes('credential-already-in-use')) return 'That Google account is already connected to another board.';
+        if (code.includes('popup-blocked')) return 'Allow pop-ups for this site, then try again.';
+        if (code.includes('unauthorized-domain')) return 'This site is not authorized for Google sign-in. Contact the board owner.';
+        if (code.includes('operation-not-allowed')) return 'Google sign-in is not enabled for this Firebase project.';
         return 'Something went wrong. Please try again.';
     }
 
     onAuthStateChanged(auth, async (user) => {
-        if (registering) return;
         if (user) {
             try {
                 await reload(user);
@@ -1522,6 +1581,8 @@
             }
 
             currentUser = user;
+            googleConnectNotice.hidden = user.providerData.some(data => data.providerId === 'google.com');
+            googleConnectStatus.textContent = '';
             loginScreen.style.display = 'none';
             appScreen.style.display = 'block';
             window.scrollTo(0, 0);
@@ -1536,6 +1597,7 @@
             unsubscribeInvitations = null;
             stopBoardListeners();
             currentUser = null;
+            googleConnectNotice.hidden = true;
             isAdmin = false;
             currentBoardId = null;
             allowedBoardIds = new Set();
