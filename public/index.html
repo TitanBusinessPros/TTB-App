@@ -913,7 +913,6 @@
     <nav class="footer-links" aria-label="Legal and project links">
         <a href="terms.html?version=20260929">Terms and Conditions</a>
         <a href="privacy.html?version=20260929">Privacy Policy</a>
-        <a href="https://github.com/TitanBusinessPros/TTB-App">GitHub Repository</a>
     </nav>
     <div><a class="footer-facebook" href="https://www.facebook.com/TitanBusinessPros/" target="_blank" rel="noopener noreferrer" aria-label="Titan Business Pros on Facebook"><i class="fa-brands fa-facebook" aria-hidden="true"></i></a></div>
     <div>&copy; 2026 Titan Business Pros LLC. All rights reserved.</div>
@@ -1177,7 +1176,7 @@
             });
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw.js?version=21', { updateViaCache: 'none' });
+                    const registration = await navigator.serviceWorker.register('./sw.js?version=22', { updateViaCache: 'none' });
                     updateRegistration = registration;
                     if (registration.waiting && navigator.serviceWorker.controller) showUpdateNotice();
 

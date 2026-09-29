@@ -38,7 +38,7 @@ async function checkUpdateButton(hasWaitingWorker) {
       controller: {},
       addEventListener(type, listener) { listeners[`worker:${type}`] = listener; },
       async register(url) {
-        assert.equal(url, './sw.js?version=21');
+        assert.equal(url, './sw.js?version=22');
         return registration;
       }
     }
