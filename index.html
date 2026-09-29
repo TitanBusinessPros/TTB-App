@@ -737,7 +737,7 @@
             #board-picker { flex: 1; min-width: 0; max-width: none; font-size: 16px; }
             .status-pill { grid-column: 1 / -1; justify-self: start; }
             .controls button { min-width: 0; justify-content: center; padding: 10px 8px; font-size: 13px; text-align: center; }
-            .board { align-items: flex-start; gap: 12px; padding-bottom: 0; }
+            .board { align-items: stretch; gap: 12px; padding-bottom: 0; }
             .column {
                 flex-basis: min(320px, calc(100vw - 24px));
                 height: auto;
@@ -747,7 +747,7 @@
             .column-header, .add-task { flex-shrink: 0; }
             .tasks {
                 display: block;
-                flex-grow: 0;
+                flex-grow: 1;
                 overflow: visible;
                 padding: 16px;
             }
