@@ -1146,31 +1146,38 @@
         const updateButton = document.getElementById('update-app-btn');
         let updateRegistration = null;
         let reloadForUpdate = false;
+        let navigatingForUpdate = false;
+
+        function openLatestVersion() {
+            if (navigatingForUpdate) return;
+            navigatingForUpdate = true;
+            const url = new URL(location.href);
+            url.searchParams.set('ttb-update', String(Date.now()));
+            location.replace(url.href);
+        }
 
         function showUpdateNotice() {
             updateBanner.hidden = false;
         }
 
         updateButton.addEventListener('click', () => {
-            const waitingWorker = updateRegistration?.waiting;
-            if (!waitingWorker) {
-                location.reload();
-                return;
-            }
             reloadForUpdate = true;
             updateButton.disabled = true;
             updateButton.textContent = 'Updating...';
-            waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-            setTimeout(() => { if (reloadForUpdate) location.reload(); }, 8000);
+            updateRegistration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
+            Promise.resolve(updateRegistration?.update())
+                .catch(error => console.warn('Update check failed:', error))
+                .finally(openLatestVersion);
+            setTimeout(openLatestVersion, 3000);
         });
 
         if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (reloadForUpdate) location.reload();
+                if (reloadForUpdate) openLatestVersion();
             });
             window.addEventListener('load', async () => {
                 try {
-                    const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+                    const registration = await navigator.serviceWorker.register('./sw.js?version=21', { updateViaCache: 'none' });
                     updateRegistration = registration;
                     if (registration.waiting && navigator.serviceWorker.controller) showUpdateNotice();
 
