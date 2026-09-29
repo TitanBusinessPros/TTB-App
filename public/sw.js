@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ttb-static-v16';
+const CACHE_NAME = 'ttb-static-v17';
 const STATIC_FILES = [
   './site.webmanifest',
   './icons/favicon.ico',
@@ -33,7 +33,7 @@ self.addEventListener('activate', event => {
         const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         await Promise.all(windows.map(client => {
           const url = new URL(client.url);
-          url.searchParams.set('ttb-update', '16');
+          url.searchParams.set('ttb-update', '17');
           return client.navigate(url.href).catch(() => {});
         }));
       })

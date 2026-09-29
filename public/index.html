@@ -772,8 +772,33 @@
             .task-navigation button:disabled { opacity: 0.45; cursor: default; }
         }
     </style>
+  <style id="tbt-main-menu-style">
+    #tbt-back-to-main-menu {
+      position: fixed !important;
+      left: max(12px, env(safe-area-inset-left));
+      bottom: max(12px, env(safe-area-inset-bottom));
+      z-index: 2147483647;
+      display: inline-flex !important;
+      align-items: center;
+      min-height: 44px;
+      box-sizing: border-box;
+      padding: .65rem 1rem;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      background: #ff9145;
+      color: #221825;
+      font: 700 14px/1.2 system-ui, sans-serif;
+      text-align: center;
+      text-decoration: none;
+      box-shadow: 0 6px 20px #0008;
+    }
+    #tbt-back-to-main-menu:hover { background: #ffb678; }
+    #tbt-back-to-main-menu:focus-visible { outline: 3px solid #7ee8ff; outline-offset: 3px; }
+    @media print { #tbt-back-to-main-menu { display: none !important; } }
+  </style>
 </head>
 <body>
+  <a id="tbt-back-to-main-menu" href="https://titanbusinesspros.github.io/TBT-App/" target="_top">&larr; Back to Main Menu</a>
 <div id="app-update-banner" role="status" aria-live="polite" hidden>
     <span>A new version of the app is ready.</span>
     <button id="update-app-btn" type="button">Get latest version</button>
