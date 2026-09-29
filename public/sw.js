@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ttb-static-v13';
+const CACHE_NAME = 'ttb-static-v14';
 const STATIC_FILES = [
   './site.webmanifest',
   './icons/favicon.ico',
@@ -14,9 +14,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(STATIC_FILES))
-      .then(() => {
-        if (!self.registration.active) return self.skipWaiting();
-      })
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -27,8 +25,18 @@ self.addEventListener('message', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key.startsWith('ttb-static-') && key !== CACHE_NAME).map(key => caches.delete(key))))
-      .then(() => self.clients.claim())
+      .then(async keys => {
+        const oldKeys = keys.filter(key => key.startsWith('ttb-static-') && key !== CACHE_NAME);
+        await Promise.all(oldKeys.map(key => caches.delete(key)));
+        await self.clients.claim();
+        if (!oldKeys.length) return;
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        await Promise.all(windows.map(client => {
+          const url = new URL(client.url);
+          url.searchParams.set('ttb-update', '14');
+          return client.navigate(url.href).catch(() => {});
+        }));
+      })
   );
 });
 
@@ -37,7 +45,7 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => new Response(
+    event.respondWith(fetch(new Request(request, { cache: 'no-store' })).catch(() => new Response(
       '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Titan Team Task Board</title><body style="font-family:system-ui;padding:2rem;max-width:32rem;margin:auto"><h1>You are offline</h1><p>Reconnect to the internet to open your task board.</p></body></html>',
       { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     )));

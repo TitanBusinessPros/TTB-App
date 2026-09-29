@@ -49,6 +49,13 @@ Cloud Storage, and Firebase Hosting. The browser app lives in `public/index.html
   Login, empty-board, and seven-task views were checked at an emulated 390px
   viewport without horizontal overflow. The live page and `sw.js` returned
   HTTP 200 with `ttb-static-v13`.
+- On 2026-09-28, a Hosting-only follow-up removed the fixed mobile task-card
+  height and the short-page stretch. A status column now shows one compact task
+  card at a time; vertical swipes, a wheel, or Previous/Next move between
+  cards. Headless Edge checks at 390px confirmed the login, board picker, and
+  seven-task views have no horizontal overflow. Hosting now serves the page
+  and service worker with no-store headers, and the v14 service worker updates
+  open app windows when a release activates.
 
 ## Access
 
@@ -91,9 +98,9 @@ Open the live site on a phone or computer and choose **Install App**. On browser
 that do not show an install prompt, use **Install app** or **Add to Home Screen**
 from the browser menu. The icon and favicon come from `favicon.zip` in the local
 workspace. An internet connection is required to load and sync board data.
-When an update is ready, an in-app **Get latest version** button activates it
-and reloads the page. Increment `CACHE_NAME` in both copies of `sw.js` with
-each app release so open tabs can detect the new version.
+When a new version is ready, the service worker activates it and refreshes open
+app windows. Increment `CACHE_NAME` in both copies of `sw.js` with each app
+release so open tabs can detect the new version.
 
 ## Deployment
 
@@ -108,7 +115,7 @@ must have the `roles/firebaserules.firestoreServiceAgent` IAM role. This role is
 already granted in `team-task-board-a1fb3`.
 The same change to the web app belongs in both `public/index.html` and
 `index.html`. Keep `public/sw.js` and `sw.js` identical and increment their
-`CACHE_NAME` for every app release. The current cache is `ttb-static-v13`.
+`CACHE_NAME` for every app release. The current cache is `ttb-static-v14`.
 The `gcf-artifacts` repository in `us-central1` has a seven-day cleanup policy.
 
 ## Stripe premium setup

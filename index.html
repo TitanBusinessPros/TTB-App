@@ -399,6 +399,7 @@
         }
 
         .task:active { cursor: grabbing; }
+        .task-navigation { display: none; }
 
         .high-priority { border-left-color: #e74c3c; }
         .medium-priority { border-left-color: #f39c12; }
@@ -703,9 +704,10 @@
             padding: 10px 0;
         }
 
-        @media (max-width: 768px) {
-            body { padding: 12px; }
+        @media (max-width: 768px), (max-device-width: 768px) {
+            body { display: block; min-height: 0; padding: 12px; }
             .container, #app-screen { min-width: 0; }
+            .site-footer { margin-top: 24px; }
             #login-screen { display: block; min-height: 0; }
             .landing-layout {
                 grid-template-columns: minmax(0, 1fr);
@@ -742,31 +744,32 @@
                 min-height: 0;
                 max-height: none;
             }
-            .column.has-tasks {
-                height: min(52dvh, 460px);
-                min-height: 360px;
-            }
             .column-header, .add-task { flex-shrink: 0; }
             .tasks {
-                display: grid;
-                grid-auto-rows: 100%;
-                align-content: start;
-                gap: 16px;
-                min-height: 0;
+                display: block;
+                flex-grow: 0;
+                overflow: visible;
                 padding: 16px;
-                scroll-snap-type: y mandatory;
-                scroll-padding-top: 16px;
-                -webkit-overflow-scrolling: touch;
             }
             .task {
-                height: 100%;
-                min-height: 0;
+                display: none;
+                height: auto;
+                max-height: min(52dvh, 460px);
                 margin-bottom: 0;
                 overflow-y: auto;
-                scroll-snap-align: start;
-                scroll-snap-stop: always;
             }
-            .column:not(.has-tasks) .tasks { display: block; scroll-snap-type: none; }
+            .task.mobile-active { display: block; }
+            .task-navigation {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                margin-top: 12px;
+                font-size: 13px;
+                color: #64748b;
+            }
+            .task-navigation button { padding: 8px 10px; font-size: 13px; background: #ecf0f1; }
+            .task-navigation button:disabled { opacity: 0.45; cursor: default; }
         }
     </style>
 </head>
@@ -1713,6 +1716,67 @@
     window.addEventListener('offline', () => setSyncStatus(false));
 
     // ---------- Rendering ----------
+    const mobileBoardQuery = window.matchMedia('(max-width: 768px), (max-device-width: 768px)');
+
+    function taskCards(container) { return [...container.querySelectorAll('.task')]; }
+
+    function activeTaskIndex(container) {
+        return Math.max(0, taskCards(container).findIndex(card => card.classList.contains('mobile-active')));
+    }
+
+    function showMobileTask(container, index) {
+        const cards = taskCards(container);
+        if (index < 0 || index >= cards.length) return false;
+        cards.forEach((card, cardIndex) => card.classList.toggle('mobile-active', cardIndex === index));
+        container.dataset.activeTaskId = cards[index].dataset.taskId;
+        cards[index].scrollTop = 0;
+        const navigation = container.querySelector('.task-navigation');
+        if (navigation) {
+            navigation.querySelector('.task-position').textContent = `${index + 1} of ${cards.length}`;
+            navigation.querySelector('.task-prev').disabled = index === 0;
+            navigation.querySelector('.task-next').disabled = index === cards.length - 1;
+        }
+        return true;
+    }
+
+    function canSwipeToTask(container, direction) {
+        if (!mobileBoardQuery.matches) return false;
+        const cards = taskCards(container);
+        const index = activeTaskIndex(container);
+        if (!cards.length || index + direction < 0 || index + direction >= cards.length) return false;
+        const card = cards[index];
+        return direction > 0
+            ? card.scrollTop + card.clientHeight >= card.scrollHeight - 2
+            : card.scrollTop <= 2;
+    }
+
+    function renderTaskNavigation(container) {
+        const cards = taskCards(container);
+        if (!cards.length) { delete container.dataset.activeTaskId; return; }
+        const activeId = container.dataset.activeTaskId;
+        if (cards.length > 1) {
+            const navigation = document.createElement('div');
+            navigation.className = 'task-navigation';
+            const previous = document.createElement('button');
+            previous.type = 'button';
+            previous.className = 'task-prev';
+            previous.textContent = 'Previous';
+            previous.addEventListener('click', () => showMobileTask(container, activeTaskIndex(container) - 1));
+            const position = document.createElement('span');
+            position.className = 'task-position';
+            position.setAttribute('aria-live', 'polite');
+            const next = document.createElement('button');
+            next.type = 'button';
+            next.className = 'task-next';
+            next.textContent = 'Next';
+            next.addEventListener('click', () => showMobileTask(container, activeTaskIndex(container) + 1));
+            navigation.append(previous, position, next);
+            container.appendChild(navigation);
+        }
+        const index = Math.max(0, cards.findIndex(card => card.dataset.taskId === activeId));
+        showMobileTask(container, index);
+    }
+
     function renderAllTasks(docs) {
         const columns = { todo: [], progress: [], review: [], done: [] };
         currentTasksById = {};
@@ -1739,6 +1803,7 @@
                 container.innerHTML = '<div class="empty-note">No tasks</div>';
             }
             columns[colName].forEach(task => container.appendChild(buildTaskCard(task)));
+            renderTaskNavigation(container);
             const countEl = column.querySelector('.task-count');
             countEl.textContent = columns[colName].length;
         });
@@ -1852,6 +1917,39 @@
 
     // ---------- Drag & drop onto empty/column areas ----------
     document.querySelectorAll('.tasks').forEach(container => {
+        let touchStart = null;
+        let lastWheelTurn = 0;
+        container.addEventListener('wheel', event => {
+            if (Math.abs(event.deltaY) < 4) return;
+            const direction = Math.sign(event.deltaY);
+            if (!canSwipeToTask(container, direction)) return;
+            event.preventDefault();
+            if (performance.now() - lastWheelTurn < 350) return;
+            showMobileTask(container, activeTaskIndex(container) + direction);
+            lastWheelTurn = performance.now();
+        }, { passive: false });
+        container.addEventListener('touchstart', event => {
+            if (event.touches.length !== 1) return;
+            touchStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+        }, { passive: true });
+        container.addEventListener('touchmove', event => {
+            if (!touchStart || event.touches.length !== 1) return;
+            const changeX = touchStart.x - event.touches[0].clientX;
+            const changeY = touchStart.y - event.touches[0].clientY;
+            if (Math.abs(changeY) > 12 && Math.abs(changeY) > Math.abs(changeX) * 1.3
+                && canSwipeToTask(container, Math.sign(changeY))) event.preventDefault();
+        }, { passive: false });
+        container.addEventListener('touchend', event => {
+            if (!touchStart || !event.changedTouches.length) return;
+            const changeX = touchStart.x - event.changedTouches[0].clientX;
+            const changeY = touchStart.y - event.changedTouches[0].clientY;
+            if (Math.abs(changeY) > 45 && Math.abs(changeY) > Math.abs(changeX) * 1.3) {
+                const direction = Math.sign(changeY);
+                if (canSwipeToTask(container, direction)) showMobileTask(container, activeTaskIndex(container) + direction);
+            }
+            touchStart = null;
+        }, { passive: true });
+        container.addEventListener('touchcancel', () => { touchStart = null; }, { passive: true });
         container.addEventListener('dragover', e => {
             e.preventDefault();
             const dragging = document.querySelector('.dragging');
